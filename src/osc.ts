@@ -663,6 +663,20 @@ export function readArgument(
 	} as OscMetaArgument
 }
 
+/** The index of the ']' that closes an array whose '[' came just before these type tags, or -1 if there isn't one */
+function findArrayClose(argTypes: string[]): number {
+	let depth = 0
+	for (let i = 0; i < argTypes.length; i++) {
+		if (argTypes[i] === '[') {
+			depth++
+		} else if (argTypes[i] === ']') {
+			if (depth === 0) return i
+			depth--
+		}
+	}
+	return -1
+}
+
 // Unsupported, non-API function.
 export function readArgumentsIntoArray(
 	arr: OscArgument[],
@@ -679,8 +693,7 @@ export function readArgumentsIntoArray(
 
 		if (argType === '[') {
 			const fromArrayOpen = argTypes.slice(i + 1)
-			// Known quirk: this finds the first close, so nested arrays cannot be read
-			const endArrayIdx = fromArrayOpen.indexOf(']')
+			const endArrayIdx = findArrayClose(fromArrayOpen)
 
 			if (endArrayIdx < 0) {
 				throw new Error(

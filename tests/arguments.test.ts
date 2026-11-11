@@ -138,10 +138,17 @@ describe('readArguments', () => {
 		)
 	})
 
-	test('known quirk: nested arrays cannot be read (they can be written)', () => {
-		const written = osc.writeArguments([[1, [2]]], {})
-		expect(toArray(written).slice(0, 8)).toEqual(oscString(',[f[f]]'))
-		expect(() => osc.readArguments(new DataView(written.buffer), { idx: 0 })).toThrow(
+	test('nested arrays', () => {
+		const written = osc.writeArguments([[1, [2, []], 3], 4], {})
+		expect(toArray(written).slice(0, 12)).toEqual(oscString(',[f[f[]]f]f'))
+		expect(normalise(osc.readArguments(new DataView(written.buffer), { idx: 0 }))).toEqual([
+			[{ type: 'f', value: 1 }, [{ type: 'f', value: 2 }, []], { type: 'f', value: 3 }],
+			{ type: 'f', value: 4 },
+		])
+	})
+
+	test('throws for a nested array that is never closed', () => {
+		expect(() => osc.readArguments(dv(oscString(',[[i]')), { idx: 0 })).toThrow(
 			"an open array type tag ('[') was found without a matching close array tag"
 		)
 	})
