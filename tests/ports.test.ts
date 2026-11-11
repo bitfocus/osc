@@ -280,10 +280,22 @@ describe('Relay', () => {
 		expect(toArray(port1.sendRaw.mock.calls[0][0])).toEqual(encodedMessage)
 	})
 
-	test('known quirk: the raw option is always overridden to false', () => {
-		const relay = new osc.Relay(new osc.Port(), new osc.Port(), { raw: true })
-		expect(relay.options.raw).toBe(false)
-		expect(new osc.Relay(new osc.Port(), new osc.Port()).options).toEqual({ raw: false })
+	test('with the raw option, relays the raw bytes with sendRaw', () => {
+		const { port1, port2 } = relayPorts()
+		const send = vi.spyOn(port2, 'send')
+		new osc.Relay(port1, port2, { raw: true })
+		port1.decodeOSC(new Uint8Array(encodedMessage))
+		expect(toArray(port2.sendRaw.mock.calls[0][0])).toEqual(encodedMessage)
+		expect(send).not.toHaveBeenCalled()
+	})
+
+	test('relays transformed packets', () => {
+		const { port1, port2 } = relayPorts()
+		new osc.Relay(port1, port2, { transform: (packet) => ({ ...packet, address: '/transformed' }) })
+		port1.decodeOSC(new Uint8Array(encodedMessage))
+		expect(toArray(port2.sendRaw.mock.calls[0][0])).toEqual(
+			toArray(osc.writePacket({ address: '/transformed', args: [{ type: 'f', value: 440 }] }))
+		)
 	})
 
 	test('open opens both ports', () => {
@@ -346,14 +358,14 @@ describe('Relay', () => {
 			expect(to.sendRaw).toHaveBeenCalledWith('bytes', 'host', 1234)
 		})
 
-		test('known quirk: the transform function is called, but its result is not what gets sent', () => {
+		test('the result of the transform function is what gets sent', () => {
 			const from = new EventEmitter()
 			const to = { send: vi.fn() }
 			const transform = vi.fn(() => 'transformed')
 			osc.relay(from, to, 'message', 'send', transform)
 			from.emit('message', 'original')
 			expect(transform).toHaveBeenCalledWith('original')
-			expect(to.send).toHaveBeenCalledWith('original')
+			expect(to.send).toHaveBeenCalledWith('transformed')
 		})
 
 		test('relayPorts relays osc events with send, or raw events with sendRaw', () => {

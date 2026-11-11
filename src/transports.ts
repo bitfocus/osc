@@ -229,9 +229,7 @@ export interface RelaySpec {
 }
 
 /**
- * Forwards each eventName event from one emitter to a send function on another.
- *
- * Known quirk: transformFn is called with the data, but its result is not what gets sent.
+ * Forwards each eventName event from one emitter to a send function on another, after transformFn if given.
  */
 // Unsupported, non-API function.
 export function relay(
@@ -244,12 +242,10 @@ export function relay(
 ): RelaySpec {
 	eventName = eventName || 'message'
 	const sendFn = sendFnName || 'send'
-	const transform = transformFn || function () {}
 	const args = sendArgs ? [null].concat(sendArgs) : []
 
 	const listener = function (data: any) {
-		args[0] = data
-		data = transform(data)
+		args[0] = transformFn ? transformFn(data) : data
 		to[sendFn](...args)
 	}
 
@@ -279,8 +275,9 @@ export function stopRelaying(from: RelaySource, relaySpec: RelaySpec): void {
 }
 
 export interface RelayOptions {
-	/** Known quirk: this is always overridden to false */
+	/** Relay the raw bytes of each packet, with sendRaw, rather than decoding and re-encoding it. Defaults to false. */
 	raw?: boolean
+	/** Transforms each packet (or, with raw, its bytes) before it is relayed */
 	transform?: (data: any) => unknown
 }
 
@@ -306,8 +303,7 @@ export class Relay extends EventEmitter<RelayEvents> {
 	 */
 	constructor(port1: Port<any>, port2: Port<any>, options?: RelayOptions) {
 		super()
-		const o = (this.options = options || {})
-		o.raw = false
+		this.options = options || {}
 
 		this.port1 = port1
 		this.port2 = port2
