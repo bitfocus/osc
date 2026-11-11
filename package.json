@@ -1,15 +1,17 @@
 {
     "name": "osc",
-    "main": "src/index.js",
     "version": "2.4.5",
-    "description": "A JavaScript Open Sound Control (OSC) library for Node.js.",
+    "description": "An Open Sound Control (OSC) library for Node.js, with UDP and TCP transports.",
     "author": "Colin Clark",
-    "homepage": "https://github.com/colinbdclark/osc.js",
+    "contributors": [
+        "Bitfocus AS"
+    ],
+    "homepage": "https://github.com/bitfocus/osc",
     "repository": {
         "type": "git",
-        "url": "git://github.com/colinbdclark/osc.js.git"
+        "url": "git+https://github.com/bitfocus/osc.git"
     },
-    "bugs": "https://github.com/colinbdclark/osc.js/issues",
+    "bugs": "https://github.com/bitfocus/osc/issues",
     "license": "(MIT OR GPL-2.0)",
     "keywords": [
         "Open Sound Control",
@@ -18,20 +20,30 @@
         "audio",
         "music",
         "UDP",
-        "TCP"
+        "TCP",
+        "SLIP"
     ],
-    "readmeFilename": "README.md",
-    "devDependencies": {
-        "infusion": "3.0.1",
-        "node-jqunit": "1.1.9"
+    "main": "src/index.js",
+    "files": [
+        "src",
+        "MIT-LICENSE.txt",
+        "GPL-LICENSE.txt"
+    ],
+    "engines": {
+        "node": ">=20"
     },
+    "packageManager": "yarn@4.18.1",
     "dependencies": {
         "long": "4.0.0"
     },
-    "scripts": {
-        "test": "node tests/node-all-tests.js"
+    "devDependencies": {
+        "@vitest/coverage-v8": "^5.1.0",
+        "vite": "^8.3.6",
+        "vitest": "^5.1.0"
     },
-    "engines": {
-        "node": ">=20"
+    "scripts": {
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage"
     }
 }

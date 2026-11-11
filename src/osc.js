@@ -683,6 +683,8 @@ var osc = {};
         if (writer) {
             var data = osc[writer](arg.value);
             osc.addDataPart(data, dataCollection);
+        } else {
+            // Type-only arguments (eg T, F, N, I) have no data to write.
         }
 
         return arg.type;
@@ -886,10 +888,10 @@ var osc = {};
             return osc.readBundleContents(dv, options, offsetState, len);
         } else if (firstChar === "/") {
             return osc.readMessageContents(header, dv, options, offsetState);
+        } else {
+            throw new Error("The header of an OSC packet didn't contain an OSC address or a #bundle string." +
+                " Header was: " + header);
         }
-
-        throw new Error("The header of an OSC packet didn't contain an OSC address or a #bundle string." +
-            " Header was: " + header);
     };
 
     /**
@@ -1030,5 +1032,7 @@ var osc = {};
         return annotated;
     };
 
+    // Vitest's V8 coverage remapping drops the final statement of this file, although it runs.
+    /* v8 ignore next */
     module.exports = osc;
 }());
