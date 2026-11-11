@@ -13,8 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Vitest needs Node 22.12+, so the library's support for Node 20 is not covered by CI.
-        node-version: [22.x, 24.x, 26.x]
+        # The Node.js runtimes Companion runs modules on
+        node-version: [22.x, 26.x]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
