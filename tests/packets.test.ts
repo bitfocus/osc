@@ -171,6 +171,24 @@ describe('Messages', () => {
 		expect(normalise(decoded)).toEqual(normalise(msg))
 	})
 
+	test('a message without a type tag string, from an older implementation, has no arguments', () => {
+		const bytes = new Uint8Array(oscString('/foo'))
+		expect(osc.readMessage(bytes)).toEqual({ address: '/foo', args: [] })
+		expect(osc.readPacket(bytes)).toEqual({ address: '/foo', args: [] })
+	})
+
+	test('a message without a type tag string, in a bundle, has no arguments', () => {
+		const message = oscString('/foo')
+		const bytes = [...oscString('#bundle'), 0, 0, 0, 0, 0, 0, 0, 1, ...int32(message.length), ...message]
+		expect(osc.readPacket(new Uint8Array(bytes))).toMatchObject({ packets: [{ address: '/foo', args: [] }] })
+	})
+
+	test('a message with data but no type tag string throws', () => {
+		expect(() => osc.readMessage(new Uint8Array([...oscString('/foo'), 0, 0, 0, 1]))).toThrow(
+			'A malformed type tag string was found'
+		)
+	})
+
 	test('readMessage throws for an address without a leading slash', () => {
 		const bytes = [...oscString('foo'), ...oscString(',')]
 		expect(() => osc.readMessage(new Uint8Array(bytes))).toThrow(
@@ -289,7 +307,8 @@ describe('Bundles', () => {
 		})
 
 		test('throws for an element whose contents run past its size', () => {
-			const bytes = new Uint8Array([...header, ...int32(4), ...m1])
+			// An 8 byte address, in an element of 4 bytes
+			const bytes = new Uint8Array([...header, ...int32(4), ...oscString('/abcdef')])
 			expect(() => osc.readPacket(bytes)).toThrow("A bundle element's contents run past its size (4 bytes)")
 		})
 

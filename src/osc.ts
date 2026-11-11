@@ -861,16 +861,19 @@ export function readMessage(data: ByteSource, _options?: OscOptions, offsetState
 	}
 
 	const address = readString(dv, offsetState)
-	return readMessageContents(address, dv, offsetState)
+	return readMessageContents(address, dv, offsetState, dv.byteLength)
 }
 
 // Unsupported, non-API function.
-export function readMessageContents(address: string, dv: DataView, offsetState: OffsetState): OscMessage {
+export function readMessageContents(address: string, dv: DataView, offsetState: OffsetState, len: number): OscMessage {
 	if (address.indexOf('/') !== 0) {
 		throw new Error('A malformed OSC address was found while reading ' + 'an OSC message. String was: ' + address)
 	}
 
-	const args = readArguments(dv, offsetState)
+	// OSC 1.0: "some older implementations of OSC may omit the OSC Type Tag string. Until all such implementations are
+	// updated, OSC implementations should be robust in the case of a missing OSC Type Tag String". A message that ends
+	// after its address has no arguments; one with more data but no type tags can't be read, and readArguments throws.
+	const args = offsetState.idx >= len ? [] : readArguments(dv, offsetState)
 
 	return {
 		address: address,
@@ -1042,7 +1045,7 @@ export function readPacket(
 	if (header === '#bundle') {
 		return readBundleContents(dv, offsetState, len)
 	} else if (header[0] === '/') {
-		return readMessageContents(header, dv, offsetState)
+		return readMessageContents(header, dv, offsetState, len)
 	} else {
 		throw new Error(
 			"The header of an OSC packet didn't contain an OSC address or a #bundle string." + ' Header was: ' + header
