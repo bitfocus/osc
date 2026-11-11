@@ -37,7 +37,8 @@
 		"dist",
 		"src",
 		"MIT-LICENSE.txt",
-		"GPL-LICENSE.txt"
+		"GPL-LICENSE.txt",
+		"CHANGELOG.md"
 	],
 	"publishConfig": {
 		"access": "public"
