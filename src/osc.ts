@@ -981,8 +981,6 @@ export function readBundleContents(dv: DataView, offsetState: OffsetState, len: 
 /**
  * Reads an OSC packet, which may consist of either a bundle or a message.
  *
- * Known quirk: any header starting with "#" is read as a bundle.
- *
  * @param data an array of bytes to read from
  * @param _options ignored; reading has no options. It's kept so that existing calls, which pass it before the
  *   offset state, keep working.
@@ -1004,11 +1002,10 @@ export function readPacket(
 	}
 
 	const header = readString(dv, offsetState)
-	const firstChar = header[0]
 
-	if (firstChar === '#') {
+	if (header === '#bundle') {
 		return readBundleContents(dv, offsetState, len)
-	} else if (firstChar === '/') {
+	} else if (header[0] === '/') {
 		return readMessageContents(header, dv, offsetState)
 	} else {
 		throw new Error(

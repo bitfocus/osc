@@ -310,9 +310,11 @@ describe('Packets', () => {
 		expect(osc.readPacket(bytes, { metadata: false })).toEqual(expected)
 	})
 
-	test('known quirk: any header starting with "#" is read as a bundle', () => {
+	test('readPacket throws for a header starting with "#" other than "#bundle"', () => {
 		const bytes = [...oscString('#foo'), 0, 0, 0, 0, 0, 0, 0, 1]
-		expect(osc.readPacket(new Uint8Array(bytes), {})).toMatchObject({ timeTag: { raw: [0, 1] }, packets: [] })
+		expect(() => osc.readPacket(new Uint8Array(bytes))).toThrow(
+			"The header of an OSC packet didn't contain an OSC address or a #bundle string. Header was: #foo"
+		)
 	})
 
 	test('writePacket of a message and a bundle', () => {
