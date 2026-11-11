@@ -92,7 +92,8 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 
 	constructor(options?: PortOptions) {
 		super()
-		this.options = options || {}
+		// A copy, so that the defaults filled in by transports aren't written into the caller's object
+		this.options = { ...options }
 		this.on('data', (data, packetInfo) => this.handleData(data, packetInfo))
 	}
 

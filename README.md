@@ -11,6 +11,7 @@ This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/col
 * Received arguments are always an array (upstream unpacked a lone argument out of it by default, as the `unpackSingleArgs` option, which is removed), and always have their types, as `{ type, value }` objects. Upstream only included the types when the `metadata` option was set, which now only affects writing.
 * UDP ports can use IPv6, including listening dual-stack on both IPv6 and IPv4 (see the `type` and `ipv6Only` options).
 * It requires Node.js 26 or later.
+* Bugs inherited from upstream are fixed, among them: blobs, MIDI messages and colours read from the wrong place in a slice of a larger buffer; nested arrays that couldn't be read; time tags a second early; `useSLIP: false` still framing sent packets; a SLIP decoder that never recovered from an oversized message; and `Relay` ignoring its `raw` and `transform` options. See the commit history for the full list.
 * It is written in TypeScript, with type declarations. Everything is available as a named export, and on the default export, which is shaped like the `osc` object of osc.js:
 
   ```javascript
@@ -537,7 +538,7 @@ This project uses [Yarn](https://yarnpkg.com) (via Corepack), [TypeScript](https
 
 `yarn check-types` type-checks the sources and tests, `yarn lint` checks the formatting (`yarn format` fixes it), and `yarn build` compiles to `dist`.
 
-`yarn test:coverage` also checks coverage, which must stay at 100%. Behaviour inherited from upstream that is surprising or buggy is pinned by tests named `known quirk: …`, so that changing it is a deliberate decision.
+`yarn test:coverage` also checks coverage, which must stay at 100%.
 
 Contributors
 ------------

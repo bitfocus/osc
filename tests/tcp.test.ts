@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import net, { type AddressInfo } from 'node:net'
 import { afterEach, describe, expect, test, vi, type Mock } from 'vitest'
 import type { OscMessage, OscMessageInput, TCPSocketPort, TCPSocketPortOptions } from '../src/index.js'
-import { ipv6Available, nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
+import { ipv6Available, nextEvent, osc, slip, toArray } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
 /** message, as it is received: arguments are read with their types */
@@ -62,8 +62,12 @@ describe('TCPSocketPort', () => {
 		expect(port.options).toMatchObject({ address: '10.0.0.2', port: 0 })
 	})
 
-	test('known quirk: constructing without an options object throws', () => {
-		expect(() => new untypedOsc.TCPSocketPort()).toThrow(TypeError)
+	test('can be constructed without options, and copies the options it is given', () => {
+		expect(new osc.TCPSocketPort().options).toEqual({ useSLIP: true, address: '127.0.0.1', port: 57121 })
+
+		const options = { port: 0 }
+		new osc.TCPSocketPort(options)
+		expect(options).toEqual({ port: 0 })
 	})
 
 	test('sends a message from a client to a server', async () => {
@@ -243,8 +247,8 @@ describe('TCPSocketPort', () => {
 		expect(onError).not.toHaveBeenCalled()
 	})
 
-	test('known quirk: close without a socket throws', () => {
-		expect(() => new osc.TCPSocketPort({}).close()).toThrow(TypeError)
+	test('close does nothing without a socket', () => {
+		expect(() => new osc.TCPSocketPort({}).close()).not.toThrow()
 	})
 
 	test.skipIf(!ipv6Available)('sends a message over IPv6', async () => {

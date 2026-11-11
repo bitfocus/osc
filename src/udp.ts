@@ -46,14 +46,13 @@ export interface UDPPortOptions extends PortOptions {
 /**
  * Sends and receives OSC packets over UDP.
  *
- * Known quirks: the options object is required, and the given object has the defaults written into it; and after
- * closing, the port cannot be reopened.
+ * After closing, the port can be opened again.
  */
 export class UDPPort extends Port<dgram.RemoteInfo> {
 	declare options: UDPPortOptions
 	socket: dgram.Socket | undefined
 
-	constructor(options: UDPPortOptions) {
+	constructor(options?: UDPPortOptions) {
 		super(options)
 
 		this.options.localAddress = this.options.localAddress || '127.0.0.1'
@@ -64,7 +63,7 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 
 		this.on('open', () => this.listen())
 
-		this.socket = options.socket
+		this.socket = this.options.socket
 		if (this.socket) {
 			this.emit('open', this.socket)
 		}
@@ -102,15 +101,18 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 	}
 
 	listen(): void {
-		if (!this.socket) {
+		const socket = this.socket
+		if (!socket) {
 			return
 		}
 
-		this.socket.on('message', (msg, rinfo) => {
+		socket.on('message', (msg, rinfo) => {
 			this.emit('data', msg, rinfo)
 		})
 
-		this.socket.on('close', () => {
+		socket.on('close', () => {
+			// The socket may have been closed by something other than close()
+			if (this.socket === socket) this.socket = undefined
 			this.emit('close')
 		})
 
@@ -120,8 +122,6 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 	/**
 	 * Sends encoded bytes, to the given address and port or else those in the options. From a dual-stack udp6 socket,
 	 * an IPv4 address is sent to as its IPv4-mapped IPv6 address.
-	 *
-	 * Known quirk: after the socket has closed, this throws.
 	 */
 	override sendRaw(encoded: Uint8Array | ArrayLike<number>, address?: string, port?: number): void {
 		if (!this.socket) {
@@ -148,8 +148,11 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 	}
 
 	close(): void {
-		if (this.socket) {
-			this.socket.close()
+		const socket = this.socket
+		if (socket) {
+			// Forget the socket straight away, so that sending fails as for a closed port, and open() makes a new one
+			this.socket = undefined
+			socket.close()
 		}
 	}
 

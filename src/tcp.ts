@@ -25,14 +25,12 @@ export interface TCPSocketPortOptions extends SLIPPortOptions {
 
 /**
  * Sends and receives SLIP framed OSC packets over a TCP connection.
- *
- * Known quirks: the options object is required; and close() throws if the port has no socket.
  */
 export class TCPSocketPort extends SLIPPort<undefined> {
 	declare options: TCPSocketPortOptions
 	socket: net.Socket | undefined
 
-	constructor(options: TCPSocketPortOptions) {
+	constructor(options?: TCPSocketPortOptions) {
 		super(options)
 
 		const o = this.options
@@ -44,7 +42,7 @@ export class TCPSocketPort extends SLIPPort<undefined> {
 		o.port = o.port !== undefined ? o.port : o.localPort !== undefined ? o.localPort : 57121
 
 		this.on('open', () => this.listen())
-		this.socket = options.socket
+		this.socket = this.options.socket
 
 		if (this.socket) {
 			this.emit('open', this.socket)
@@ -105,6 +103,8 @@ export class TCPSocketPort extends SLIPPort<undefined> {
 	}
 
 	close(): void {
-		;(this.socket as net.Socket).end()
+		if (this.socket) {
+			this.socket.end()
+		}
 	}
 }

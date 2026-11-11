@@ -3,7 +3,7 @@ import dgramModule from 'node:dgram'
 import { EventEmitter } from 'node:events'
 import { afterEach, describe, expect, test, vi, type Mock } from 'vitest'
 import type { OscMessageInput, UDPPort, UDPPortOptions } from '../src/index.js'
-import { ipv6Available, nextEvent, osc, toArray, untypedOsc } from './helpers.js'
+import { ipv6Available, nextEvent, osc, toArray } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
 /** message, as it is received: arguments are read with their types */
@@ -69,8 +69,18 @@ describe('UDPPort', () => {
 		expect(new osc.UDPPort({ ...options }).options).toEqual(options)
 	})
 
-	test('known quirk: constructing without an options object throws', () => {
-		expect(() => new untypedOsc.UDPPort()).toThrow(TypeError)
+	test('can be constructed without options, and copies the options it is given', () => {
+		expect(new osc.UDPPort().options).toEqual({
+			localAddress: '127.0.0.1',
+			localPort: 57121,
+			remoteAddress: '127.0.0.1',
+			remotePort: 57121,
+		})
+
+		const options = { localPort: 0 }
+		const port = new osc.UDPPort(options)
+		expect(options).toEqual({ localPort: 0 })
+		expect(port.options).not.toBe(options)
 	})
 
 	test('sends and receives a message', async () => {
@@ -179,17 +189,32 @@ describe('UDPPort', () => {
 		expect(() => new osc.UDPPort({}).close()).not.toThrow()
 	})
 
-	test('known quirk: after closing, the port cannot be reopened or sent from', async () => {
+	test('after closing, sending emits an error, and the port can be opened again', async () => {
 		const port = await openUDPPort()
 		const closed = nextEvent(port, 'close')
 		port.close()
+		expect(port.socket).toBeUndefined()
+
+		const onError = vi.fn()
+		port.on('error', onError)
+		port.send(message)
+		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed osc.Port object")
 		await closed
 
-		const onReady = vi.fn()
-		port.on('ready', onReady)
+		const ready = nextEvent(port, 'ready')
 		port.open()
-		expect(onReady).not.toHaveBeenCalled()
-		expect(() => port.send(message)).toThrow()
+		await ready
+		const received = nextEvent(port, 'message')
+		port.send(message, '127.0.0.1', port.socket!.address().port)
+		expect((await received)[0]).toEqual(receivedMessage)
+	})
+
+	test('forgets a socket that is closed by something else', async () => {
+		const port = await openUDPPort()
+		const closed = nextEvent(port, 'close')
+		port.socket!.close()
+		await closed
+		expect(port.socket).toBeUndefined()
 	})
 
 	describe('with an existing socket', () => {
