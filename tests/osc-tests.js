@@ -11,7 +11,7 @@
 
 var fluid = fluid || require("infusion"),
     jqUnit = jqUnit || fluid.require("node-jqunit"),
-    osc = osc || fluid.require("%osc/src/platforms/osc-node.js", require, "osc");
+    osc = osc || fluid.require("%osc/src/index.js", require, "osc");
 
 (function () {
     "use strict";

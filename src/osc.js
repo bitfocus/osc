@@ -1,13 +1,13 @@
 /*
- * osc.js: An Open Sound Control library for JavaScript that works in both the browser and Node.js
+ * osc.js: An Open Sound Control library for Node.js
  *
  * Copyright 2014-2016, Colin Clark
  * Licensed under the MIT and GPL 3 licenses.
  */
 
-/* global require, module, process, Buffer, Long, util */
+/*jshint node:true*/
 
-var osc = osc || {};
+var osc = {};
 
 (function () {
 
@@ -21,19 +21,6 @@ var osc = osc || {};
         unpackSingleArgs: true
     };
 
-    // Unsupported, non-API property.
-    osc.isCommonJS = typeof module !== "undefined" && module.exports ? true : false;
-
-    // Unsupported, non-API property.
-    osc.isNode = osc.isCommonJS && typeof window === "undefined";
-
-    // Unsupported, non-API property.
-    osc.isElectron = typeof process !== "undefined" &&
-        process.versions && process.versions.electron ? true : false;
-
-    // Unsupported, non-API property.
-    osc.isBufferEnv = osc.isNode || osc.isElectron;
-
     // Unsupported, non-API function.
     osc.isArray = function (obj) {
         return obj && Object.prototype.toString.call(obj) === "[object Array]";
@@ -46,20 +33,16 @@ var osc = osc || {};
 
     // Unsupported, non-API function.
     osc.isBuffer = function (obj) {
-        return osc.isBufferEnv && obj instanceof Buffer;
+        return obj instanceof Buffer;
     };
 
     // Unsupported, non-API member.
-    osc.Long = typeof Long !== "undefined" ? Long :
-        osc.isNode ? require("long") : undefined;
+    osc.Long = require("long");
 
-    // Unsupported, non-API member. Can be removed when supported versions
-    // of Node.js expose TextDecoder as a global, as in the browser.
-    osc.TextDecoder = typeof TextDecoder !== "undefined" ? new TextDecoder("utf-8") :
-        typeof util !== "undefined" && typeof (util.TextDecoder !== "undefined") ? new util.TextDecoder("utf-8") : undefined;
-
-    osc.TextEncoder = typeof TextEncoder !== "undefined" ? new TextEncoder("utf-8") :
-        typeof util !== "undefined" && typeof (util.TextEncoder !== "undefined") ? new util.TextEncoder("utf-8") : undefined;
+    // Unsupported, non-API members. These are globals in both Node.js and browsers,
+    // so the core codec has no dependency on Node's Buffer.
+    osc.TextDecoder = new TextDecoder("utf-8");
+    osc.TextEncoder = new TextEncoder();
 
     /**
      * Wraps the specified object in a DataView.
@@ -111,22 +94,15 @@ var osc = osc || {};
 
     /**
      * Takes an ArrayBuffer, TypedArray, DataView, or array-like object
-     * and returns a native buffer object
-     * (i.e. in Node.js, a Buffer object and in the browser, a Uint8Array).
-     *
-     * Throws an error if the object isn't suitably array-like.
+     * and returns a Node.js Buffer. Only used by the Node.js transports.
      *
      * @param {Array-like or Array-wrapping} obj an array-like or array-wrapping object
-     * @returns {Buffer|Uint8Array} a buffer object
+     * @returns {Buffer} a buffer object
      */
     // Unsupported, non-API function.
     osc.nativeBuffer = function (obj) {
-        if (osc.isBufferEnv) {
-            return osc.isBuffer(obj) ? obj :
-                Buffer.from(obj.buffer ? obj : new Uint8Array(obj));
-        }
-
-        return osc.isTypedArrayView(obj) ? obj : new Uint8Array(obj);
+        return osc.isBuffer(obj) ? obj :
+            Buffer.from(obj.buffer ? obj : new Uint8Array(obj));
     };
 
     // Unsupported, non-API function
@@ -170,34 +146,7 @@ var osc = osc || {};
         idx = (idx + 3) & ~0x03;
         offsetState.idx = idx;
 
-        var decoder = osc.isBufferEnv ? osc.readString.withBuffer :
-            osc.TextDecoder ? osc.readString.withTextDecoder : osc.readString.raw;
-
-        return decoder(charCodes);
-    };
-
-    osc.readString.raw = function (charCodes) {
-        // If no Buffer or TextDecoder, resort to fromCharCode
-        // This does not properly decode multi-byte Unicode characters.
-        var str = "";
-        var sliceSize = 10000;
-
-        // Processing the array in chunks so as not to exceed argument
-        // limit, see https://bugs.webkit.org/show_bug.cgi?id=80797
-        for (var i = 0; i < charCodes.length; i += sliceSize) {
-            str += String.fromCharCode.apply(null, charCodes.slice(i, i + sliceSize));
-        }
-
-        return str;
-    };
-
-    osc.readString.withTextDecoder = function (charCodes) {
-        var data = new Int8Array(charCodes);
-        return osc.TextDecoder.decode(data);
-    };
-
-    osc.readString.withBuffer = function (charCodes) {
-        return Buffer.from(charCodes).toString("utf-8");
+        return osc.TextDecoder.decode(new Uint8Array(charCodes));
     };
 
     /**
@@ -207,34 +156,15 @@ var osc = osc || {};
      * @return {Uint8Array} a buffer containing the OSC-formatted string
      */
     osc.writeString = function (str) {
-
-        var encoder = osc.isBufferEnv ? osc.writeString.withBuffer :
-            osc.TextEncoder ? osc.writeString.withTextEncoder : null,
-            terminated = str + "\u0000",
-            encodedStr;
-
-        if (encoder) {
-            encodedStr = encoder(terminated);
-        }
-
-        var len = encoder ? encodedStr.length : terminated.length,
+        var encodedStr = osc.TextEncoder.encode(str + "\u0000"),
+            len = encodedStr.length,
             paddedLen = (len + 3) & ~0x03,
             arr = new Uint8Array(paddedLen);
 
-        for (var i = 0; i < len - 1; i++) {
-            var charCode = encoder ? encodedStr[i] : terminated.charCodeAt(i);
-            arr[i] = charCode;
-        }
+        // The terminating null and the padding are left as zeroes.
+        arr.set(encodedStr.subarray(0, len - 1));
 
         return arr;
-    };
-
-    osc.writeString.withTextEncoder = function (str) {
-        return osc.TextEncoder.encode(str);
-    };
-
-    osc.writeString.withBuffer = function (str) {
-        return Buffer.from(str);
     };
 
     // Unsupported, non-API function.
@@ -295,15 +225,7 @@ var osc = osc || {};
         var high = osc.readPrimitive(dv, "getInt32", 4, offsetState),
             low = osc.readPrimitive(dv, "getInt32", 4, offsetState);
 
-        if (osc.Long) {
-            return new osc.Long(low, high);
-        } else {
-            return {
-                high: high,
-                low: low,
-                unsigned: false
-            };
-        }
+        return new osc.Long(low, high);
     };
 
     /**
@@ -385,11 +307,8 @@ var osc = osc || {};
      * @return {String} a string containing the read character
      */
     osc.writeChar32 = function (str, dv, offset) {
+        // An empty string has no first character, and is written as 0.
         var charCode = str.charCodeAt(0);
-        if (charCode === undefined || charCode < -1) {
-            return undefined;
-        }
-
         return osc.writePrimitive(charCode, dv, "setUint32", 4, offset);
     };
 
@@ -1111,7 +1030,5 @@ var osc = osc || {};
         return annotated;
     };
 
-    if (osc.isCommonJS) {
-        module.exports = osc;
-    }
+    module.exports = osc;
 }());

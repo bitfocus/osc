@@ -14,7 +14,7 @@
 
 var fluid = fluid || require("infusion"),
     jqUnit = jqUnit || fluid.require("node-jqunit"),
-    osc = osc || require("../src/platforms/osc-node.js");
+    osc = osc || require("../src/index.js");
 
 var QUnit = fluid.registerNamespace("QUnit");
 

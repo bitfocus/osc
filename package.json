@@ -1,6 +1,6 @@
 {
     "name": "osc",
-    "main": "src/platforms/osc-node.js",
+    "main": "src/index.js",
     "version": "2.4.5",
     "description": "A JavaScript Open Sound Control (OSC) library for Node.js.",
     "author": "Colin Clark",
@@ -26,10 +26,12 @@
         "node-jqunit": "1.1.9"
     },
     "dependencies": {
-        "long": "4.0.0",
-        "wolfy87-eventemitter": "5.2.9"
+        "long": "4.0.0"
     },
     "scripts": {
         "test": "node tests/node-all-tests.js"
+    },
+    "engines": {
+        "node": ">=20"
     }
 }

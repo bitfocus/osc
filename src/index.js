@@ -1,40 +1,21 @@
 /*
- * osc.js: An Open Sound Control library for JavaScript that works in both the browser and Node.js
+ * osc.js: An Open Sound Control library for Node.js
  *
- * Node.js transports for osc.js
+ * Node.js transports for osc.js, and the package entry point
  *
  * Copyright 2014-2016, Colin Clark
  * Licensed under the MIT and GPL 3 licenses.
  */
 
-/*global require, module, Buffer*/
 /*jshint node:true*/
 
 (function () {
     "use strict";
 
-    var shallowMerge = function (target, toMerge) {
-        target = target || {};
-        if (toMerge.forEach === undefined) {
-            toMerge = [toMerge];
-        }
-
-        toMerge.forEach(function (obj) {
-            for (var prop in obj) {
-                target[prop] = obj[prop];
-            }
-        });
-
-        return target;
-    };
-
-    var dgram = require("dgram"),
-        net = require("net"),
-        modules = [
-            require("../osc.js"),
-            require("../osc-transports.js")
-        ],
-        osc = shallowMerge({}, modules);
+    var dgram = require("node:dgram"),
+        net = require("node:net"),
+        // osc-transports.js extends (and re-exports) the core osc.js object.
+        osc = require("./osc-transports.js");
 
 
     /*******

@@ -1,5 +1,5 @@
 /*
- * osc.js: An Open Sound Control library for JavaScript that works in both the browser and Node.js
+ * osc.js: An Open Sound Control library for Node.js
  *
  * SLIP (RFC 1055) framing, used by stream transports such as TCP.
  *
@@ -32,9 +32,9 @@ slip.expandByteArray = function (arr) {
     return expanded;
 };
 
+// Copies a range of one of this module's own (zero-offset) buffers.
 slip.sliceByteArray = function (arr, start, end) {
-    var sliced = arr.buffer.slice ? arr.buffer.slice(start, end) : arr.subarray(start, end);
-    return new Uint8Array(sliced);
+    return new Uint8Array(arr.buffer.slice(start, end));
 };
 
 /**
