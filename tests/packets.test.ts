@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { OscBundleInput, OscMessageInput, OscMetaArgument, OscOptions, OscPacketInput } from '../src/index.js'
+import type { OscBundleInput, OscMessageInput, OscOptions, OscPacketInput } from '../src/index.js'
 import { int32, normalise, osc, oscString, toArray, untypedOsc } from './helpers.js'
 
 const messageSpecs: Array<{
@@ -130,11 +130,27 @@ describe('Messages', () => {
 		expect(osc.readMessage(backing.subarray(4))).toEqual(messageSpecs[2].expected)
 	})
 
-	test('known quirk: blobs in a view with a byteOffset are read from the wrong position', () => {
-		const bytes = toArray(osc.writeMessage({ address: '/b', args: [{ type: 'b', value: [1, 2, 3] }] }))
+	test('blobs, MIDI messages and colours are read from the right place in a view with a byteOffset', () => {
+		const message: OscMessageInput = {
+			address: '/b',
+			args: [
+				{ type: 'b', value: [1, 2, 3] },
+				{ type: 'm', value: [4, 5, 6, 7] },
+				{ type: 'r', value: { r: 8, g: 9, b: 10, a: 1 } },
+			],
+		}
+		const bytes = toArray(osc.writeMessage(message, { metadata: true }))
 		const backing = new Uint8Array([9, 9, 9, 9, ...bytes])
-		const actual = osc.readMessage(backing.subarray(4), { metadata: true })
-		expect(toArray((actual.args[0] as OscMetaArgument).value as Uint8Array)).not.toEqual([1, 2, 3])
+		expect(normalise(osc.readMessage(backing.subarray(4)))).toEqual(
+			normalise({
+				address: '/b',
+				args: [
+					{ type: 'b', value: new Uint8Array([1, 2, 3]) },
+					{ type: 'm', value: new Uint8Array([4, 5, 6, 7]) },
+					{ type: 'r', value: { r: 8, g: 9, b: 10, a: 1 } },
+				],
+			})
+		)
 	})
 
 	test('a single argument is read into an array, like any other number of arguments', () => {

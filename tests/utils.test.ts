@@ -43,9 +43,11 @@ describe('dataView', () => {
 		expect(view.getUint8(1)).toBe(8)
 	})
 
-	test('known quirk: a plain array cannot be wrapped (passes a Uint8Array, not its buffer, to DataView)', () => {
-		expect(() => osc.dataView([9, 10, 11])).toThrow(TypeError)
-		expect(() => osc.readPacket([0x2f, 0, 0, 0, 0x2c, 0, 0, 0], {})).toThrow(TypeError)
+	test('wraps a plain array', () => {
+		const view = osc.dataView([9, 10, 11])
+		expect(view.byteLength).toBe(3)
+		expect(view.getUint8(2)).toBe(11)
+		expect(osc.readPacket([0x2f, 0, 0, 0, 0x2c, 0, 0, 0])).toEqual({ address: '/', args: [] })
 	})
 })
 
@@ -71,9 +73,11 @@ describe('byteArray', () => {
 		expect(toArray(osc.byteArray(new DataView(new Uint8Array([3, 4]).buffer)))).toEqual([3, 4])
 	})
 
-	test('known quirk: a view onto part of a buffer is widened to the whole buffer', () => {
+	test('wraps only the part of the buffer that a view covers', () => {
 		const ab = new Uint8Array([1, 2, 3, 4]).buffer
-		expect(toArray(osc.byteArray(new DataView(ab, 2, 2)))).toEqual([1, 2, 3, 4])
+		expect(toArray(osc.byteArray(new DataView(ab, 2, 2)))).toEqual([3, 4])
+		expect(toArray(osc.byteArray(new Uint16Array(ab, 2, 1)))).toEqual([3, 4])
+		expect(toArray(osc.nativeBuffer(new DataView(ab, 1, 2)))).toEqual([2, 3])
 	})
 
 	test('copies a plain array', () => {
@@ -119,9 +123,9 @@ describe('copyByteArray', () => {
 		expect(target).toEqual([0, 1, 2])
 	})
 
-	test('known quirk: copying plain arrays without an offset copies nothing', () => {
+	test('copies between plain arrays without an offset', () => {
 		const target = [0, 0]
 		osc.copyByteArray([1, 2], target)
-		expect(target).toEqual([0, 0])
+		expect(target).toEqual([1, 2])
 	})
 })

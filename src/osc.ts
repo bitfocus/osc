@@ -73,8 +73,7 @@ export function dataView(obj: ByteSource, offset?: number, length?: number): Dat
 		return new DataView(obj, offset, length)
 	}
 
-	// Known quirk: DataView requires an ArrayBuffer, not a Uint8Array, so this always throws
-	return new DataView(new Uint8Array(obj as ArrayLike<number>) as unknown as ArrayBuffer, offset, length)
+	return new DataView(new Uint8Array(obj as ArrayLike<number>).buffer, offset, length)
 }
 
 /**
@@ -92,19 +91,19 @@ export function byteArray(obj: ByteSource): Uint8Array {
 		return obj
 	}
 
-	const buf: unknown = (obj as ArrayBufferView).buffer ? (obj as ArrayBufferView).buffer : obj
+	if (ArrayBuffer.isView(obj)) {
+		// Only the part of the buffer that the view covers
+		return new Uint8Array(obj.buffer, obj.byteOffset, obj.byteLength)
+	}
 
 	if (
-		!(buf instanceof ArrayBuffer) &&
-		(typeof (buf as { length?: unknown }).length === 'undefined' || typeof buf === 'string')
+		!(obj instanceof ArrayBuffer) &&
+		(typeof (obj as { length?: unknown }).length === 'undefined' || typeof obj === 'string')
 	) {
 		throw new Error("Can't wrap a non-array-like object as Uint8Array. Object was: " + JSON.stringify(obj, null, 2))
 	}
 
-	// TODO gh-39: This is a potentially unsafe algorithm;
-	// if we're getting anything other than a TypedArrayView (such as a DataView),
-	// we really need to determine the range of the view it is viewing.
-	return new Uint8Array(buf as ArrayBuffer | ArrayLike<number>)
+	return new Uint8Array(obj as ArrayBuffer | ArrayLike<number>)
 }
 
 /**
@@ -116,9 +115,7 @@ export function byteArray(obj: ByteSource): Uint8Array {
  */
 // Unsupported, non-API function.
 export function nativeBuffer(obj: ByteSource): Buffer {
-	return isBuffer(obj)
-		? obj
-		: Buffer.from((obj as ArrayBufferView).buffer ? (obj as Uint8Array) : new Uint8Array(obj as ArrayLike<number>))
+	return isBuffer(obj) ? obj : Buffer.from(byteArray(obj))
 }
 
 // Unsupported, non-API function
@@ -131,8 +128,7 @@ export function copyByteArray<T extends Uint8Array | number[]>(
 		target.set(source, offset)
 	} else {
 		const start = offset === undefined ? 0 : offset
-		// Known quirk: without an offset, len is NaN, so nothing is copied
-		const len = Math.min(target.length - (offset as number), source.length)
+		const len = Math.min(target.length - start, source.length)
 
 		for (let i = 0, j = start; i < len; i++, j++) {
 			target[j] = source[i]
@@ -366,8 +362,6 @@ export function writeChar32(str: string, dv?: DataView, offset?: number): Uint8A
 /**
  * Reads an OSC blob ("b") (i.e. a Uint8Array).
  *
- * Known quirk: this ignores the byteOffset of dv, so reads from the wrong place in a view onto part of a buffer.
- *
  * @param dv a DataView instance to read from
  * @param offsetState an offsetState object used to store the current offset index into dv
  * @return the data that was read, as a view onto dv's buffer
@@ -375,7 +369,7 @@ export function writeChar32(str: string, dv?: DataView, offset?: number): Uint8A
 export function readBlob(dv: DataView, offsetState: OffsetState): Uint8Array {
 	const len = readInt32(dv, offsetState)
 	const paddedLen = (len + 3) & ~0x03
-	const blob = new Uint8Array(dv.buffer, offsetState.idx, len)
+	const blob = new Uint8Array(dv.buffer, dv.byteOffset + offsetState.idx, len)
 
 	offsetState.idx += paddedLen
 
@@ -416,7 +410,7 @@ export function writeBlob(data: OscBinaryInput): Uint8Array {
  * @return an array containing (in order) the port ID, status, data1 and data1 bytes
  */
 export function readMIDIBytes(dv: DataView, offsetState: OffsetState): Uint8Array {
-	const midi = new Uint8Array(dv.buffer, offsetState.idx, 4)
+	const midi = new Uint8Array(dv.buffer, dv.byteOffset + offsetState.idx, 4)
 	offsetState.idx += 4
 
 	return midi
@@ -443,7 +437,7 @@ export function writeMIDIBytes(bytes: OscBinaryInput): Uint8Array {
  * @return a colour object containing r, g, b, and a properties
  */
 export function readColor(dv: DataView, offsetState: OffsetState): OscColor {
-	const bytes = new Uint8Array(dv.buffer, offsetState.idx, 4)
+	const bytes = new Uint8Array(dv.buffer, dv.byteOffset + offsetState.idx, 4)
 	const alpha = bytes[3] / 255
 
 	offsetState.idx += 4
