@@ -183,6 +183,12 @@ export function readString(dv: DataView, offsetState: OffsetState): string {
  * @return a buffer containing the OSC-formatted string
  */
 export function writeString(str: string): Uint8Array {
+	// OSC 1.0: an OSC-string is "a sequence of non-null ASCII characters followed by a null". A null inside it would be
+	// read as its end, misreading everything after it.
+	if (str.includes('\u0000')) {
+		throw new Error('An OSC string cannot contain a null character. String was: ' + JSON.stringify(str))
+	}
+
 	const encodedStr = textEncoder.encode(str + '\u0000')
 	const len = encodedStr.length
 	const paddedLen = (len + 3) & ~0x03

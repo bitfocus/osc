@@ -37,6 +37,16 @@ describe('Strings', () => {
 		expect(toArray(actual)).toEqual(toArray(stringToDataView(padded)))
 	})
 
+	test('writeString throws for a string containing a null character', () => {
+		expect(() => osc.writeString('a\u0000b')).toThrow(
+			'An OSC string cannot contain a null character. String was: "a\\u0000b"'
+		)
+		expect(() => osc.writeMessage({ address: '/a\u0000b' })).toThrow('An OSC string cannot contain a null character')
+		expect(() => osc.writeMessage({ address: '/a', args: ['x\u0000y'] })).toThrow(
+			'An OSC string cannot contain a null character'
+		)
+	})
+
 	test('readString starts from the given offset', () => {
 		const offsetState = { idx: 4 }
 		expect(osc.readString(stringToDataView('abc\u0000def\u0000'), offsetState)).toBe('def')
