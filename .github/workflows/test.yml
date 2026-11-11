@@ -13,8 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The Node.js runtimes Companion runs modules on
-        node-version: [22.x, 26.x]
+        node-version: [26.x]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

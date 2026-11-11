@@ -73,7 +73,8 @@ export class TCPSocketPort extends SLIPPort<undefined> {
 		const socket = this.socket as net.Socket
 
 		socket.on('data', (msg) => {
-			this.emit('data', msg, undefined)
+			// Data is only a string if an encoding has been set on the socket, which would break SLIP decoding anyway
+			this.emit('data', msg as Buffer, undefined)
 		})
 
 		socket.on('error', (err) => {
