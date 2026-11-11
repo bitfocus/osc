@@ -1,15 +1,17 @@
 {
     "name": "osc",
-    "main": "src/platforms/osc-node.js",
     "version": "2.4.5",
-    "description": "A JavaScript Open Sound Control (OSC) library that works in Node.js and the browser.",
+    "description": "An Open Sound Control (OSC) library for Node.js, with UDP and TCP transports.",
     "author": "Colin Clark",
-    "homepage": "https://github.com/colinbdclark/osc.js",
+    "contributors": [
+        "Bitfocus AS"
+    ],
+    "homepage": "https://github.com/bitfocus/osc",
     "repository": {
         "type": "git",
-        "url": "git://github.com/colinbdclark/osc.js.git"
+        "url": "git+https://github.com/bitfocus/osc.git"
     },
-    "bugs": "https://github.com/colinbdclark/osc.js/issues",
+    "bugs": "https://github.com/bitfocus/osc/issues",
     "license": "(MIT OR GPL-2.0)",
     "keywords": [
         "Open Sound Control",
@@ -17,40 +19,31 @@
         "sound",
         "audio",
         "music",
-        "Web Socket",
         "UDP",
-        "serial",
-        "TCP"
+        "TCP",
+        "SLIP"
     ],
-    "readmeFilename": "README.md",
-    "devDependencies": {
-        "grunt": "1.6.1",
-        "grunt-contrib-clean": "2.0.1",
-        "grunt-contrib-concat": "2.1.0",
-        "grunt-replace": "2.0.2",
-        "grunt-contrib-jshint": "3.2.0",
-        "grunt-contrib-uglify": "5.2.2",
-        "infusion": "3.0.1",
-        "jquery": "3.7.1",
-        "node-jqunit": "1.1.9",
-        "requirejs": "2.3.7",
-        "testem": "3.15.1"
+    "main": "src/index.js",
+    "files": [
+        "src",
+        "MIT-LICENSE.txt",
+        "GPL-LICENSE.txt"
+    ],
+    "engines": {
+        "node": ">=20"
     },
+    "packageManager": "yarn@4.18.1",
     "dependencies": {
-        "long": "4.0.0",
-        "slip": "1.0.2",
-        "wolfy87-eventemitter": "5.2.9",
-        "ws": "8.18.0"
+        "long": "4.0.0"
     },
-    "optionalDependencies": {
-        "serialport": "12.0.0"
+    "devDependencies": {
+        "@vitest/coverage-v8": "^5.1.0",
+        "vite": "^8.3.6",
+        "vitest": "^5.1.0"
     },
     "scripts": {
-        "test": "npm run node-test && grunt && npm run browser-test",
-        "prepublishOnly": "npm run build",
-        "build": "npx grunt",
-        "node-test": "node tests/node-all-tests.js",
-        "browser-test": "npx testem ci --file tests/testem.json",
-        "clean-test": "./clean-npm.sh && npm install && npm test"
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage"
     }
 }

@@ -1,5 +1,5 @@
 /*
- * osc.js: An Open Sound Control library for JavaScript that works in both the browser and Node.js
+ * osc.js: An Open Sound Control library for Node.js
  *
  * Cross-platform base transport library for osc.js.
  *
@@ -7,11 +7,11 @@
  * Licensed under the MIT and GPL 3 licenses.
  */
 
-/* global require, module */
+/*jshint node:true*/
 
-var osc = osc || require("./osc.js"),
-    slip = slip || require("slip"),
-    EventEmitter = EventEmitter || require("events").EventEmitter;
+var osc = require("./osc.js"),
+    slip = require("./slip.js"),
+    EventEmitter = require("node:events").EventEmitter;
 
 (function () {
 
@@ -216,8 +216,5 @@ var osc = osc || require("./osc.js"),
     };
 
 
-    // If we're in a require-compatible environment, export ourselves.
-    if (typeof module !== "undefined" && module.exports) {
-        module.exports = osc;
-    }
+    module.exports = osc;
 }());
