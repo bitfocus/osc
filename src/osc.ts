@@ -46,6 +46,42 @@ function describeValue(value: unknown): string {
 	return String(JSON.stringify(value, (_key, v: unknown) => (typeof v === 'bigint' ? `${v}n` : v), 2))
 }
 
+/**
+ * Clamps a number to an integer range, so that out of range values are written as the nearest value that fits, rather
+ * than wrapping around. Fractions are truncated, and NaN is 0, as DataView writes them.
+ */
+function clampInteger(val: number, min: number, max: number): number {
+	if (Number.isNaN(val)) return 0
+	return Math.min(max, Math.max(min, Math.trunc(val)))
+}
+
+const INT64_MIN = -(2n ** 63n)
+const INT64_MAX = 2n ** 63n - 1n
+
+/** Converts a number or bigint to an int64 value, clamped to its range (with fractions truncated, and NaN as 0) */
+function toInt64(val: bigint | number): bigint {
+	let int: bigint
+	if (typeof val === 'bigint') {
+		int = val
+	} else if (Number.isFinite(val)) {
+		int = BigInt(Math.trunc(val))
+	} else if (Number.isNaN(val)) {
+		int = 0n
+	} else {
+		int = val > 0 ? INT64_MAX : INT64_MIN
+	}
+
+	if (int < INT64_MIN) return INT64_MIN
+	if (int > INT64_MAX) return INT64_MAX
+	return int
+}
+
+/** Bytes to write: binary data as it is, and an array of numbers with each clamped to a byte */
+function clampedBytes(data: OscBinaryInput): Uint8Array {
+	if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) return byteArray(data)
+	return Uint8Array.from(data, (val) => clampInteger(val, 0, 255))
+}
+
 /** Whether a value is a { type, value } argument (value is optional, for the types that have none) */
 function isTypedArgument(arg: unknown): arg is OscMetaArgumentInput {
 	return typeof arg === 'object' && arg !== null && typeof (arg as { type?: unknown }).type === 'string'
@@ -265,7 +301,7 @@ export function readInt32(dv: DataView, offsetState: OffsetState): number {
  * @param offset an offset into dv
  */
 export function writeInt32(val: number, dv?: DataView, offset?: number): Uint8Array {
-	return writePrimitive(val, dv, 'setInt32', 4, offset)
+	return writePrimitive(clampInteger(val, -0x80000000, 0x7fffffff), dv, 'setInt32', 4, offset)
 }
 
 /**
@@ -285,7 +321,7 @@ export function readInt64(dv: DataView, offsetState: OffsetState): bigint {
 /**
  * Writes an OSC int64 ("h") value.
  *
- * @param val the number to write; a number must be an integer
+ * @param val the number to write; values outside the range of an int64 are clamped, and fractions truncated
  * @param dv a DataView instance to write the number into
  * @param offset an offset into dv
  * @return the written bytes; when writing into dv, its whole buffer, like the other writers
@@ -301,7 +337,7 @@ export function writeInt64(val: bigint | number, dv?: DataView, offset?: number)
 		arr = new Uint8Array(dv.buffer as ArrayBuffer)
 	}
 
-	dv.setBigInt64(offset, BigInt(val), false)
+	dv.setBigInt64(offset, toInt64(val), false)
 
 	return arr
 }
@@ -399,7 +435,7 @@ export function readBlob(dv: DataView, offsetState: OffsetState): Uint8Array {
  * @return a buffer containing the OSC-formatted blob
  */
 export function writeBlob(data: OscBinaryInput): Uint8Array {
-	const bytes = byteArray(data)
+	const bytes = clampedBytes(data)
 
 	const len = bytes.byteLength
 	const paddedLen = (len + 3) & ~0x03
@@ -440,7 +476,7 @@ export function readMIDIBytes(dv: DataView, offsetState: OffsetState): Uint8Arra
  */
 export function writeMIDIBytes(bytes: OscBinaryInput): Uint8Array {
 	const arr = new Uint8Array(4)
-	arr.set(byteArray(bytes))
+	arr.set(clampedBytes(bytes))
 
 	return arr
 }
@@ -473,8 +509,8 @@ export function readColor(dv: DataView, offsetState: OffsetState): OscColor {
  * @return a byte array containing the written color
  */
 export function writeColor(color: OscColor): Uint8Array {
-	const alpha = Math.round(color.a * 255)
-	return new Uint8Array([color.r, color.g, color.b, alpha])
+	const channel = (val: number) => clampInteger(Math.round(val), 0, 255)
+	return new Uint8Array([channel(color.r), channel(color.g), channel(color.b), channel(color.a * 255)])
 }
 
 /**
@@ -539,8 +575,9 @@ export function writeTimeTag(timeTag: TimeTag): Uint8Array {
 	const arr = new Uint8Array(8) // Two Unit32s.
 	const dv = new DataView(arr.buffer)
 
-	writeInt32(raw[0], dv, 0)
-	writeInt32(raw[1], dv, 4)
+	// Both halves are unsigned
+	dv.setUint32(0, clampInteger(raw[0], 0, 0xffffffff), false)
+	dv.setUint32(4, clampInteger(raw[1], 0, 0xffffffff), false)
 
 	return arr
 }

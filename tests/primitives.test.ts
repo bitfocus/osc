@@ -170,8 +170,15 @@ describe('Numbers', () => {
 		expect(toArray(osc.writeFloat64(Math.PI))).toEqual(float64(Math.PI))
 	})
 
-	test('writeInt32 wraps unsigned values above 2^31', () => {
-		expect(toArray(osc.writeInt32(3608146800))).toEqual([215, 15, 243, 112])
+	test('writeInt32 clamps values outside the int32 range, rather than wrapping', () => {
+		expect(toArray(osc.writeInt32(2 ** 31))).toEqual([127, 255, 255, 255])
+		expect(toArray(osc.writeInt32(-(2 ** 31) - 1))).toEqual([128, 0, 0, 0])
+		expect(toArray(osc.writeInt32(Infinity))).toEqual([127, 255, 255, 255])
+	})
+
+	test('writeInt32 truncates fractions, and writes NaN as 0', () => {
+		expect(toArray(osc.writeInt32(-1.9))).toEqual([255, 255, 255, 255])
+		expect(toArray(osc.writeInt32(NaN))).toEqual([0, 0, 0, 0])
 	})
 
 	test('readFloat64', () => {
@@ -207,12 +214,16 @@ describe('Numbers', () => {
 			expect(toArray(osc.writeInt64(-2))).toEqual([255, 255, 255, 255, 255, 255, 255, 254])
 		})
 
-		test('writeInt64 of a number that is not an integer throws', () => {
-			expect(() => osc.writeInt64(1.5)).toThrow(RangeError)
+		test('writeInt64 of a number truncates fractions, writes NaN as 0, and clamps infinities', () => {
+			expect(osc.readInt64(dv(osc.writeInt64(-1.5)), { idx: 0 })).toBe(-1n)
+			expect(osc.readInt64(dv(osc.writeInt64(NaN)), { idx: 0 })).toBe(0n)
+			expect(osc.readInt64(dv(osc.writeInt64(Infinity)), { idx: 0 })).toBe(2n ** 63n - 1n)
+			expect(osc.readInt64(dv(osc.writeInt64(-Infinity)), { idx: 0 })).toBe(-(2n ** 63n))
 		})
 
-		test('writeInt64 wraps values outside the signed 64-bit range', () => {
-			expect(toArray(osc.writeInt64(2n ** 64n - 1n))).toEqual([255, 255, 255, 255, 255, 255, 255, 255])
+		test('writeInt64 clamps values outside the int64 range, rather than wrapping', () => {
+			expect(toArray(osc.writeInt64(2n ** 64n))).toEqual([127, 255, 255, 255, 255, 255, 255, 255])
+			expect(toArray(osc.writeInt64(-(2n ** 64n)))).toEqual([128, 0, 0, 0, 0, 0, 0, 0])
 		})
 
 		test('writeInt64 into a DataView at an offset returns the whole buffer', () => {
@@ -292,6 +303,9 @@ describe('Blobs', () => {
 		expect(toArray(osc.writeBlob([1, 2, 3, 4]))).toEqual([0, 0, 0, 4, 1, 2, 3, 4])
 		expect(toArray(osc.writeBlob([1, 2, 3, 4, 5]))).toEqual([0, 0, 0, 5, 1, 2, 3, 4, 5, 0, 0, 0])
 	})
+	test('writeBlob clamps numbers in an array to bytes', () => {
+		expect(toArray(osc.writeBlob([300, -1, 1.5]))).toEqual([0, 0, 0, 3, 255, 0, 1, 0])
+	})
 })
 
 describe('MIDI', () => {
@@ -312,6 +326,9 @@ describe('MIDI', () => {
 		expect(toArray(osc.writeMIDIBytes([1, 2]))).toEqual([1, 2, 0, 0])
 		expect(() => osc.writeMIDIBytes([1, 2, 3, 4, 5])).toThrow(RangeError)
 	})
+	test('writeMIDIBytes clamps numbers to bytes', () => {
+		expect(toArray(osc.writeMIDIBytes([256, -1, 144.7, 69]))).toEqual([255, 0, 144, 69])
+	})
 })
 
 describe('Colours', () => {
@@ -326,6 +343,10 @@ describe('Colours', () => {
 		expect(toArray(osc.writeColor({ r: 128, g: 64, b: 192, a: 1 }))).toEqual([128, 64, 192, 255])
 		expect(toArray(osc.writeColor({ r: 0, g: 255, b: 0, a: 0.5 }))).toEqual([0, 255, 0, 128])
 		expect(toArray(osc.writeColor({ r: 1, g: 2, b: 3, a: 0 }))).toEqual([1, 2, 3, 0])
+	})
+	test('writeColor rounds, and clamps out of range channels and alpha', () => {
+		expect(toArray(osc.writeColor({ r: 300, g: -1, b: 127.6, a: 2 }))).toEqual([255, 0, 128, 255])
+		expect(toArray(osc.writeColor({ r: NaN, g: 0, b: 0, a: -0.5 }))).toEqual([0, 0, 0, 0])
 	})
 })
 
@@ -375,6 +396,11 @@ describe('Time tags', () => {
 	test('readTimeTag of [0, 1] ("immediately") uses the current time', () => {
 		vi.useFakeTimers({ now: 1234567 })
 		expect(osc.readTimeTag(dv([0, 0, 0, 0, 0, 0, 0, 1]), { idx: 0 })).toEqual({ raw: [0, 1], native: 1234567 })
+	})
+
+	test('writeTimeTag writes both halves as unsigned, clamped to 32 bits', () => {
+		expect(toArray(osc.writeTimeTag({ raw: [0xffffffff, 0x80000000] }))).toEqual([255, 255, 255, 255, 128, 0, 0, 0])
+		expect(toArray(osc.writeTimeTag({ raw: [2 ** 33, -1] }))).toEqual([255, 255, 255, 255, 0, 0, 0, 0])
 	})
 
 	test('writeTimeTag of the "immediately" time tag', () => {
