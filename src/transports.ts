@@ -152,16 +152,13 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 
 	/**
 	 * Decodes a packet, emitting the raw, osc, and message or bundle events, or an error if it isn't valid.
-	 *
-	 * Known quirk: this uses the port's options rather than osc.defaults, so single arguments are not unpacked unless
-	 * the unpackSingleArgs option is set.
 	 */
 	decodeOSC(data: ByteSource, packetInfo?: TInfo): void {
 		const bytes = byteArray(data)
 		this.emit('raw', bytes, packetInfo)
 
 		try {
-			const packet = readPacket(bytes, this.options)
+			const packet = readPacket(bytes)
 			this.emit('osc', packet, packetInfo)
 			firePacketEvents(this, packet, undefined, packetInfo)
 		} catch (err) {

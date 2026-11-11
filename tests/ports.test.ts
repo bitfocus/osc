@@ -89,14 +89,6 @@ describe('Port', () => {
 		expect(await messageEvent).toEqual([receivedMessage, undefined, info])
 	})
 
-	test('known quirk: a port does not use osc.defaults, so single arguments are not unpacked unless asked', () => {
-		const port = new osc.Port({ unpackSingleArgs: true })
-		const onMessage = vi.fn()
-		port.on('message', onMessage)
-		port.decodeOSC(new Uint8Array(encodedMessage))
-		expect(onMessage.mock.calls[0][0]).toEqual({ address: '/test/freq', args: { type: 'f', value: 440 } })
-	})
-
 	test('decodeOSC accepts an ArrayBuffer', () => {
 		const port = new osc.Port()
 		const onMessage = vi.fn()

@@ -54,7 +54,7 @@ const messageSpecs: Array<{
 			0x65, 0x6e, 0x63, 0x79, 0, 0x2c, 0x66, 0, 0, 0x43, 0xdc, 0, 0,
 		],
 		message: { address: '/oscillator/4/frequency', args: 440 },
-		expected: { address: '/oscillator/4/frequency', args: { type: 'f', value: 440 } },
+		expected: { address: '/oscillator/4/frequency', args: [{ type: 'f', value: 440 }] },
 		options: undefined,
 	},
 	{
@@ -133,17 +133,12 @@ describe('Messages', () => {
 	test('known quirk: blobs in a view with a byteOffset are read from the wrong position', () => {
 		const bytes = toArray(osc.writeMessage({ address: '/b', args: [{ type: 'b', value: [1, 2, 3] }] }))
 		const backing = new Uint8Array([9, 9, 9, 9, ...bytes])
-		const actual = osc.readMessage(backing.subarray(4), { metadata: true, unpackSingleArgs: true })
-		expect(toArray((actual.args as OscMetaArgument).value as Uint8Array)).not.toEqual([1, 2, 3])
+		const actual = osc.readMessage(backing.subarray(4), { metadata: true })
+		expect(toArray((actual.args[0] as OscMetaArgument).value as Uint8Array)).not.toEqual([1, 2, 3])
 	})
 
-	test('unpackSingleArgs: false keeps a single argument in an array', () => {
-		const actual = osc.readMessage(new Uint8Array(messageSpecs[2].bytes), { unpackSingleArgs: false })
-		expect(actual).toEqual({ address: '/oscillator/4/frequency', args: [{ type: 'f', value: 440 }] })
-	})
-
-	test('known quirk: options without unpackSingleArgs do not unpack, unlike the defaults', () => {
-		const actual = osc.readMessage(new Uint8Array(messageSpecs[2].bytes), { metadata: false })
+	test('a single argument is read into an array, like any other number of arguments', () => {
+		const actual = osc.readMessage(new Uint8Array(messageSpecs[2].bytes))
 		expect(actual).toEqual({ address: '/oscillator/4/frequency', args: [{ type: 'f', value: 440 }] })
 	})
 
@@ -211,7 +206,7 @@ const bundle: OscBundleInput = {
 	],
 }
 
-const metadataOptions = { metadata: true, unpackSingleArgs: false }
+const metadataOptions = { metadata: true }
 
 describe('Bundles', () => {
 	test('readBundle with nested bundles', () => {
@@ -292,9 +287,11 @@ describe('Packets', () => {
 		)
 	})
 
-	test('known quirk: readPacket, unlike readMessage, requires an options object for messages with arguments', () => {
-		expect(untypedOsc.readPacket(osc.writeMessage({ address: '/a', args: [] }))).toEqual({ address: '/a', args: [] })
-		expect(() => untypedOsc.readPacket(osc.writeMessage({ address: '/a', args: [1] }))).toThrow(TypeError)
+	test('readPacket needs no options, and ignores any that are given', () => {
+		const bytes = osc.writeMessage({ address: '/a', args: [1] })
+		const expected = { address: '/a', args: [{ type: 'f', value: 1 }] }
+		expect(osc.readPacket(bytes)).toEqual(expected)
+		expect(osc.readPacket(bytes, { metadata: false })).toEqual(expected)
 	})
 
 	test('known quirk: any header starting with "#" is read as a bundle', () => {
@@ -329,7 +326,7 @@ describe('Packets', () => {
 	})
 
 	test('gh-102: array-typed arguments without type metadata', () => {
-		const options = { metadata: false, unpackSingleArgs: true }
+		const options = { metadata: false }
 		const message = { address: '/float/andArray', args: [440.0, [42.0, 47.0]] }
 		expect(osc.readPacket(osc.writePacket(message, options), options)).toEqual({
 			address: '/float/andArray',
@@ -344,6 +341,6 @@ describe('Packets', () => {
 	})
 
 	test('osc.defaults', () => {
-		expect(osc.defaults).toEqual({ metadata: false, unpackSingleArgs: true })
+		expect(osc.defaults).toEqual({ metadata: false })
 	})
 })

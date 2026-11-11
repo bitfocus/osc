@@ -37,7 +37,6 @@ export const TWO_32 = 4294967296
 
 export const defaults: OscOptions = {
 	metadata: false,
-	unpackSingleArgs: true,
 }
 
 // Unsupported, non-API member.
@@ -815,32 +814,24 @@ export function collectArguments(
 /**
  * Reads an OSC message.
  *
- * Known quirk: options without unpackSingleArgs do not unpack single arguments, unlike the defaults.
- *
  * @param data an array of bytes to read from
- * @param options read options
+ * @param _options ignored; reading has no options. It's kept so that existing calls, which pass it before the
+ *   offset state, keep working.
  * @param offsetState an offsetState object that stores the current offset into dv
  * @return the OSC message, formatted as a JavaScript object containing "address" and "args" properties
  */
-export function readMessage(data: ByteSource, options?: OscOptions, offsetState?: OffsetState): OscMessage {
-	options = options || defaults
-
+export function readMessage(data: ByteSource, _options?: OscOptions, offsetState?: OffsetState): OscMessage {
 	const dv = dataView(data, (data as ArrayBufferView).byteOffset, (data as ArrayBufferView).byteLength)
 	offsetState = offsetState || {
 		idx: 0,
 	}
 
 	const address = readString(dv, offsetState)
-	return readMessageContents(address, dv, options, offsetState)
+	return readMessageContents(address, dv, offsetState)
 }
 
 // Unsupported, non-API function.
-export function readMessageContents(
-	address: string,
-	dv: DataView,
-	options: OscOptions,
-	offsetState: OffsetState
-): OscMessage {
+export function readMessageContents(address: string, dv: DataView, offsetState: OffsetState): OscMessage {
 	if (address.indexOf('/') !== 0) {
 		throw new Error('A malformed OSC address was found while reading ' + 'an OSC message. String was: ' + address)
 	}
@@ -849,7 +840,7 @@ export function readMessageContents(
 
 	return {
 		address: address,
-		args: args.length === 1 && options.unpackSingleArgs ? args[0] : args,
+		args: args,
 	}
 }
 
@@ -895,12 +886,13 @@ export function isValidMessage(msg: unknown): msg is OscMessageInput {
  * Reads an OSC bundle.
  *
  * @param dv the DataView instance to read from
- * @param options read options
+ * @param _options ignored; reading has no options. It's kept so that existing calls, which pass it before the
+ *   offset state, keep working.
  * @param offsetState an offsetState object that stores the current offset into dv
  * @return the bundle or message object that was read
  */
-export function readBundle(dv: ByteSource, options: OscOptions, offsetState?: OffsetState): OscPacket {
-	return readPacket(dv, options, offsetState)
+export function readBundle(dv: ByteSource, _options?: OscOptions, offsetState?: OffsetState): OscPacket {
+	return readPacket(dv, undefined, offsetState)
 }
 
 // Unsupported, non-API function.
@@ -961,19 +953,14 @@ export function isValidBundle(bundle: unknown): bundle is OscBundleInput {
 }
 
 // Unsupported, non-API function.
-export function readBundleContents(
-	dv: DataView,
-	options: OscOptions,
-	offsetState: OffsetState,
-	len: number
-): OscBundle {
+export function readBundleContents(dv: DataView, offsetState: OffsetState, len: number): OscBundle {
 	const timeTag = readTimeTag(dv, offsetState)
 	const packets: OscPacket[] = []
 
 	while (offsetState.idx < len) {
 		const packetSize = readInt32(dv, offsetState)
 		const packetLen = offsetState.idx + packetSize
-		const packet = readPacket(dv, options, offsetState, packetLen)
+		const packet = readPacket(dv, undefined, offsetState, packetLen)
 
 		packets.push(packet)
 	}
@@ -987,14 +974,21 @@ export function readBundleContents(
 /**
  * Reads an OSC packet, which may consist of either a bundle or a message.
  *
- * Known quirks: unlike readMessage, the options are required for messages with arguments; and any header starting
- * with "#" is read as a bundle.
+ * Known quirk: any header starting with "#" is read as a bundle.
  *
  * @param data an array of bytes to read from
- * @param options read options
+ * @param _options ignored; reading has no options. It's kept so that existing calls, which pass it before the
+ *   offset state, keep working.
+ * @param offsetState an offsetState object that stores the current offset into data
+ * @param len the offset in data to read up to, for a bundle
  * @return a bundle or message object
  */
-export function readPacket(data: ByteSource, options: OscOptions, offsetState?: OffsetState, len?: number): OscPacket {
+export function readPacket(
+	data: ByteSource,
+	_options?: OscOptions,
+	offsetState?: OffsetState,
+	len?: number
+): OscPacket {
 	const dv = dataView(data, (data as ArrayBufferView).byteOffset, (data as ArrayBufferView).byteLength)
 
 	len = len === undefined ? dv.byteLength : len
@@ -1006,9 +1000,9 @@ export function readPacket(data: ByteSource, options: OscOptions, offsetState?: 
 	const firstChar = header[0]
 
 	if (firstChar === '#') {
-		return readBundleContents(dv, options, offsetState, len)
+		return readBundleContents(dv, offsetState, len)
 	} else if (firstChar === '/') {
-		return readMessageContents(header, dv, options, offsetState)
+		return readMessageContents(header, dv, offsetState)
 	} else {
 		throw new Error(
 			"The header of an OSC packet didn't contain an OSC address or a #bundle string." + ' Header was: ' + header

@@ -135,8 +135,7 @@ export type OscArgumentInput =
 /** An OSC message, as read */
 export interface OscMessage {
 	address: string
-	/** The arguments. A single argument is unpacked out of the array when the unpackSingleArgs option is set. */
-	args: OscArgument | OscArgument[]
+	args: OscArgument[]
 }
 
 /** An OSC message, for writing */
@@ -167,8 +166,6 @@ export interface OscOptions {
 	 * that aren't. Defaults to false. Arguments are always read with their types.
 	 */
 	metadata?: boolean
-	/** When reading, unpack the only argument of a message out of the args array. Defaults to true. */
-	unpackSingleArgs?: boolean
 }
 
 /** Tracks the position of a reader in some data */

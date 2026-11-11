@@ -65,23 +65,23 @@ describe('Strings', () => {
 		const objectArg = { name: 'Hugo', color: 'White with tabby spots', age: 8 }
 		const msg = { address: '/thecat', args: JSON.stringify(objectArg) }
 		const decoded = osc.readMessage(osc.writeMessage(msg))
-		expect(decoded).toEqual({ address: '/thecat', args: { type: 's', value: msg.args } })
-		expect(JSON.parse((decoded.args as OscMetaArgument).value as string)).toEqual(objectArg)
+		expect(decoded).toEqual({ address: '/thecat', args: [{ type: 's', value: msg.args }] })
+		expect(JSON.parse((decoded.args[0] as OscMetaArgument).value as string)).toEqual(objectArg)
 	})
 
 	test('gh-40: stringified extended character object as string argument', () => {
 		const objectArg = { oneProperty: 'Murdock’s Fougere', anotherProperty: 'a gentleman’s look' }
 		const msg = { address: '/thecat', args: encodeURIComponent(JSON.stringify(objectArg)) }
 		const decoded = osc.readMessage(osc.writeMessage(msg))
-		expect(decoded).toEqual({ address: '/thecat', args: { type: 's', value: msg.args } })
-		expect(JSON.parse(decodeURIComponent((decoded.args as OscMetaArgument).value as string))).toEqual(objectArg)
+		expect(decoded).toEqual({ address: '/thecat', args: [{ type: 's', value: msg.args }] })
+		expect(JSON.parse(decodeURIComponent((decoded.args[0] as OscMetaArgument).value as string))).toEqual(objectArg)
 	})
 
 	test('utf-8 address and string argument round trip', () => {
 		expect(osc.readMessage(osc.writeMessage({ address: '/éé', args: [] }))).toEqual({ address: '/éé', args: [] })
 		expect(osc.readMessage(osc.writeMessage({ address: '/test', args: 'éé' }))).toEqual({
 			address: '/test',
-			args: { type: 's', value: 'éé' },
+			args: [{ type: 's', value: 'éé' }],
 		})
 	})
 })
