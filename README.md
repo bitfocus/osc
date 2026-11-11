@@ -8,13 +8,12 @@ This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/col
 * It is for Node.js only. The Web Socket, serial port and Chrome App transports have been removed, along with the browser builds, so it no longer depends on `ws`, `serialport`, `slip` (now inlined) or `wolfy87-eventemitter`. The core encoder/decoder still avoids Node-only APIs, so browser support can be added back as a separate entry point.
 * `osc.WebSocketPort`, `osc.SerialPort` and the environment flags (`osc.isNode`, `osc.isBufferEnv`, …) no longer exist.
 * It requires Node.js 22.12 or later (Companion runs modules on Node.js 22 and 26).
-* It is written in TypeScript, and published only as an ES module, with type declarations. Everything is available as a named export, and on the default export, which is shaped like the `osc` object of osc.js:
+* It is written in TypeScript, with type declarations. Everything is available as a named export, and on the default export, which is shaped like the `osc` object of osc.js:
 
   ```javascript
   import osc from "@companion-app/osc"; // or: import { UDPPort, readPacket } from "@companion-app/osc";
   ```
 
-  There is no CommonJS build. CommonJS code can still load it with Node's `require()` of ES modules, as `require("@companion-app/osc").default`.
 * Transports are classes, so a custom transport extends them with `class ... extends osc.Port`, rather than calling `osc.Port.call(this)`.
 * The library calls its own functions directly, so replacing a function on the exported object no longer changes the library's behaviour.
 
