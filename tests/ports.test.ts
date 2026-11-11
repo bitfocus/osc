@@ -58,16 +58,19 @@ describe('Port', () => {
 		expect(onError.mock.calls[0][0].message).toContain('packet was not recognized as a valid OSC')
 	})
 
-	test('known quirk: encodeOSC unwraps a packet with a "buffer" property', () => {
-		const port = mockPort()
-		expect(toArray(port.encodeOSC({ buffer: message } as any))).toEqual(encodedMessage)
-	})
-
-	test('known quirk: sending an invalid packet emits an error, and then throws', () => {
+	test('a packet with a "buffer" property is not treated specially', () => {
 		const port = mockPort()
 		const onError = vi.fn()
 		port.on('error', onError)
-		expect(() => port.send({ address: 'nope' })).toThrow(TypeError)
+		expect(port.encodeOSC({ buffer: message } as any)).toBeUndefined()
+		expect(onError).toHaveBeenCalledTimes(1)
+	})
+
+	test('sending an invalid packet emits an error, and sends nothing', () => {
+		const port = mockPort()
+		const onError = vi.fn()
+		port.on('error', onError)
+		port.send({ address: 'nope' })
 		expect(onError).toHaveBeenCalledTimes(1)
 		expect(port.sendRaw).not.toHaveBeenCalled()
 	})
@@ -203,11 +206,6 @@ describe('SLIPPort', () => {
 		port.on('error', onError)
 		expect(port.encodeOSC({ foo: 1 } as any)).toBeUndefined()
 		expect(onError).toHaveBeenCalledTimes(1)
-	})
-
-	test('known quirk: SLIPPort.encodeOSC also unwraps a packet with a "buffer" property', () => {
-		const port = mockSLIPPort()
-		expect(toArray(port.encodeOSC({ buffer: message } as any))).toEqual(toArray(slip.encode(encodedMessage)))
 	})
 
 	test('decodes SLIP-framed messages split across several chunks', () => {

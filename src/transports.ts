@@ -46,12 +46,6 @@ export interface PortEvents<TInfo = unknown> {
 
 export type PortOptions = OscOptions
 
-// Known quirk: a packet with a "buffer" property is replaced by the value of that property.
-function unwrapBufferProperty(packet: OscPacketInput): OscPacketInput {
-	const wrapped = (packet as { buffer?: OscPacketInput }).buffer
-	return wrapped ? wrapped : packet
-}
-
 // Unsupported, non-API function.
 export function firePacketEvents<TInfo>(
 	port: Port<TInfo>,
@@ -109,14 +103,13 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 
 	/**
 	 * Sends a packet. Any extra arguments (such as a destination address and port, for UDP) are passed to sendRaw.
-	 *
-	 * Known quirk: sending an invalid packet emits an error, and then throws.
+	 * An invalid packet isn't sent, and emits an error.
 	 */
 	send(oscPacket: OscPacketInput, ...args: any[]): void {
 		const encoded = this.encodeOSC(oscPacket)
-		const buf = nativeBuffer(encoded as Uint8Array)
+		if (!encoded) return
 
-		this.sendRaw(buf, ...args)
+		this.sendRaw(nativeBuffer(encoded), ...args)
 	}
 
 	/** Opens the underlying connection. Transports implement this. */
@@ -131,13 +124,8 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 
 	/**
 	 * Encodes a packet, emitting an error (and returning undefined) if it isn't valid.
-	 *
-	 * Known quirk: a packet with a "buffer" property is replaced by the value of that property.
 	 */
 	encodeOSC(packet: OscPacketInput): Uint8Array | undefined {
-		// TODO gh-39: This is unsafe; we should only access the underlying
-		// buffer within the range of its view.
-		packet = unwrapBufferProperty(packet)
 		let encoded: Uint8Array | undefined
 
 		try {
@@ -204,9 +192,6 @@ export class SLIPPort<TInfo = unknown> extends Port<TInfo> {
 	}
 
 	override encodeOSC(packet: OscPacketInput): Uint8Array | undefined {
-		// TODO gh-39: This is unsafe; we should only access the underlying
-		// buffer within the range of its view.
-		packet = unwrapBufferProperty(packet)
 		let framed: Uint8Array | undefined
 
 		try {
