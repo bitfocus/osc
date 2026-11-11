@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest'
-import type { OscBundleInput, OscMessageInput, OscOptions, OscPacketInput } from '../src/index.js'
+import type {
+	OscBundle,
+	OscBundleInput,
+	OscMessage,
+	OscMessageInput,
+	OscOptions,
+	OscPacketInput,
+} from '../src/index.js'
 import { int32, normalise, osc, oscString, toArray, untypedOsc } from './helpers.js'
 
 const messageSpecs: Array<{
@@ -256,6 +263,41 @@ describe('Bundles', () => {
 			0,
 			0,
 		])
+	})
+
+	describe('element sizes', () => {
+		const m1 = toArray(osc.writeMessage({ address: '/a', args: [1] }))
+		const m2 = toArray(osc.writeMessage({ address: '/b', args: [2] }))
+		const header = [...oscString('#bundle'), 0, 0, 0, 0, 0, 0, 0, 1]
+
+		test('the next element starts where the size says, even if the contents are shorter', () => {
+			const bytes = new Uint8Array([...header, ...int32(m1.length + 4), ...m1, 0, 0, 0, 0, ...int32(m2.length), ...m2])
+			const actual = osc.readPacket(bytes) as OscBundle
+			expect(actual.packets.map((p) => (p as OscMessage).address)).toEqual(['/a', '/b'])
+		})
+
+		test('throws for an element that runs past the end of its bundle', () => {
+			const bytes = new Uint8Array([...header, ...int32(100), ...m1])
+			expect(() => osc.readPacket(bytes)).toThrow(
+				"A bundle element's size (100 bytes) runs past the end of its bundle, at offset 20"
+			)
+		})
+
+		test('throws for an element with a negative size', () => {
+			const bytes = new Uint8Array([...header, ...int32(-4), ...m1])
+			expect(() => osc.readPacket(bytes)).toThrow("A bundle element's size (-4 bytes) runs past the end")
+		})
+
+		test('throws for an element whose contents run past its size', () => {
+			const bytes = new Uint8Array([...header, ...int32(4), ...m1])
+			expect(() => osc.readPacket(bytes)).toThrow("A bundle element's contents run past its size (4 bytes)")
+		})
+
+		test('an element in a nested bundle is limited to the nested bundle', () => {
+			const inner = [...header, ...int32(m1.length + 8), ...m1]
+			const bytes = new Uint8Array([...header, ...int32(inner.length), ...inner, ...int32(m2.length), ...m2])
+			expect(() => osc.readPacket(bytes)).toThrow("A bundle element's size (" + (m1.length + 8) + ' bytes) runs past')
+		})
 	})
 
 	test('an empty bundle', () => {

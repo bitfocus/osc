@@ -992,8 +992,19 @@ export function readBundleContents(dv: DataView, offsetState: OffsetState, len: 
 	while (offsetState.idx < len) {
 		const packetSize = readInt32(dv, offsetState)
 		const packetLen = offsetState.idx + packetSize
-		const packet = readPacket(dv, undefined, offsetState, packetLen)
+		if (packetSize < 0 || packetLen > len) {
+			throw new Error(
+				`A bundle element's size (${packetSize} bytes) runs past the end of its bundle, at offset ${offsetState.idx}`
+			)
+		}
 
+		const packet = readPacket(dv, undefined, offsetState, packetLen)
+		if (offsetState.idx > packetLen) {
+			throw new Error(`A bundle element's contents run past its size (${packetSize} bytes)`)
+		}
+
+		// The element's size says where the next one starts, whatever its contents left unread
+		offsetState.idx = packetLen
 		packets.push(packet)
 	}
 
