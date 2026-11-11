@@ -371,6 +371,11 @@ describe('Time tags', () => {
 		expect(toArray(osc.writeTimeTag({ raw: [0, 1] }))).toEqual([0, 0, 0, 0, 0, 0, 0, 1])
 	})
 
+	test('jsToNTPTime carries a fraction that rounds up to a whole second', () => {
+		expect(osc.jsToNTPTime(999.99999999999)).toEqual([osc.SECS_70YRS + 1, 0])
+		expect(toArray(osc.writeTimeTag({ native: 999.99999999999 }))).toEqual([131, 170, 126, 129, 0, 0, 0, 0])
+	})
+
 	test('ntpToJSTime and jsToNTPTime', () => {
 		expect(osc.ntpToJSTime(3608146800, 2147483648)).toBe(1399158000500)
 		expect(osc.jsToNTPTime(1399158000500)).toEqual([3608146800, 2147483648])
@@ -398,6 +403,10 @@ describe('Time tags', () => {
 
 		test('carries fractions of a second over into whole seconds', () => {
 			expect(osc.timeTag(0.75, 1500)).toEqual({ raw: [osc.SECS_70YRS + 2, osc.TWO_32 / 4] })
+		})
+
+		test('carries a fraction that rounds up to a whole second', () => {
+			expect(osc.timeTag(0.99999999999, 1000)).toEqual({ raw: [osc.SECS_70YRS + 2, 0] })
 		})
 
 		test('relative to a provided time', () => {

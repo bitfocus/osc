@@ -566,12 +566,25 @@ export function timeTag(secs?: number, now?: number): { raw: [number, number] } 
 		fracs = fracsFracs
 	}
 
-	const ntpSecs = nowWhole + secsWhole + SECS_70YRS
-	const ntpFracs = Math.round(TWO_32 * fracs)
-
 	return {
-		raw: [ntpSecs, ntpFracs],
+		raw: toNTPTime(nowWhole + secsWhole, fracs),
 	}
+}
+
+/**
+ * Converts whole seconds since 1970 and a fraction of a second to NTP time. Rounding the fraction to units of 2^-32
+ * seconds can round it up to a whole second, which is carried, as the fraction field would otherwise overflow to 0.
+ */
+function toNTPTime(secs1970: number, fraction: number): [number, number] {
+	let ntpSecs = secs1970 + SECS_70YRS
+	let ntpFracs = Math.round(TWO_32 * fraction)
+
+	if (ntpFracs >= TWO_32) {
+		ntpSecs += 1
+		ntpFracs -= TWO_32
+	}
+
+	return [ntpSecs, ntpFracs]
 }
 
 /**
@@ -591,11 +604,8 @@ export function ntpToJSTime(secs1900: number, frac: number): number {
 export function jsToNTPTime(jsTime: number): [number, number] {
 	const secs = jsTime / 1000
 	const secsWhole = Math.floor(secs)
-	const secsFrac = secs - secsWhole
-	const ntpSecs = secsWhole + SECS_70YRS
-	const ntpFracs = Math.round(TWO_32 * secsFrac)
 
-	return [ntpSecs, ntpFracs]
+	return toNTPTime(secsWhole, secs - secsWhole)
 }
 
 export interface ArgumentTypeSpec {
