@@ -1,9 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import { dv, normalise, oscString, toArray, osc } from './helpers.mjs'
+import type { OscArgumentInput, OscMetaArgument } from '../src/index.js'
+import { dv, normalise, osc, oscString, toArray, untypedOsc } from './helpers.js'
 
 /** Wraps each argument (recursing into arrays) with the type tag at the same position */
-function typed(args, typeTags) {
-	return args.map((arg, i) => (Array.isArray(arg) ? typed(arg, typeTags[i]) : { type: typeTags[i], value: arg }))
+type TypeTags = Array<string | TypeTags>
+function typed(args: unknown[], typeTags: TypeTags): any[] {
+	return args.map((arg, i) =>
+		Array.isArray(arg) ? typed(arg, typeTags[i] as TypeTags) : { type: typeTags[i], value: arg },
+	)
 }
 
 const specs = [
@@ -187,7 +191,7 @@ describe('writeArguments', () => {
 	})
 
 	test('known quirk: an unknown type throws a TypeError rather than a descriptive error', () => {
-		expect(() => osc.writeArguments([{ type: 'x', value: 1 }], { metadata: true })).toThrow(TypeError)
+		expect(() => untypedOsc.writeArguments([{ type: 'x', value: 1 }], { metadata: true })).toThrow(TypeError)
 	})
 })
 
@@ -221,7 +225,7 @@ describe('Type inference', () => {
 	})
 
 	test('annotateArguments infers types, keeps typed arguments, and recurses into arrays', () => {
-		const typedArg = { type: 'i', value: 3 }
+		const typedArg: OscArgumentInput = { type: 'i', value: 3 }
 		expect(osc.annotateArguments([1, 'a', typedArg, [true, undefined]])).toEqual([
 			{ type: 'f', value: 1 },
 			{ type: 's', value: 'a' },
@@ -238,7 +242,7 @@ describe('Type inference', () => {
 	})
 
 	test('known quirk: a typed argument without a value is not recognised as typed', () => {
-		expect(() => osc.annotateArguments([{ type: 'T' }])).toThrow("Can't infer OSC argument type for value")
+		expect(() => untypedOsc.annotateArguments([{ type: 'T' }])).toThrow("Can't infer OSC argument type for value")
 	})
 
 	test('known quirk: a null argument throws, rather than being inferred as nil', () => {
@@ -249,8 +253,9 @@ describe('Type inference', () => {
 		const long = new osc.Long(0xffffffff, 0x7fffffff)
 		const encoded = osc.writeMessage({ address: '/cat/slash', args: [long] }, { metadata: false })
 		const decoded = osc.readMessage(encoded, { metadata: true })
-		expect(decoded.args).toHaveLength(1)
-		expect(decoded.args[0].type).toBe('h')
-		expect(decoded.args[0].value.equals(long)).toBe(true)
+		const args = decoded.args as OscMetaArgument[]
+		expect(args).toHaveLength(1)
+		expect(args[0].type).toBe('h')
+		expect((args[0].value as InstanceType<typeof osc.Long>).equals(long)).toBe(true)
 	})
 })

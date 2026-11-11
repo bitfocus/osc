@@ -1,21 +1,18 @@
 import { EventEmitter } from 'node:events'
 import { describe, expect, test, vi } from 'vitest'
-import { nextEvent, slip, toArray, osc } from './helpers.mjs'
+import type { OscBundleInput, OscMessageInput, PortOptions, SLIPPortOptions } from '../src/index.js'
+import { nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
 
-const message = { address: '/test/freq', args: [440] }
+const message: OscMessageInput = { address: '/test/freq', args: [440] }
 const encodedMessage = toArray(osc.writePacket(message))
 
 /** A Port with a mocked sendRaw, standing in for a real transport */
-function mockPort(options) {
-	const port = new osc.Port(options)
-	port.sendRaw = vi.fn()
-	return port
+function mockPort(options?: PortOptions) {
+	return Object.assign(new osc.Port(options), { sendRaw: vi.fn() })
 }
 
-function mockSLIPPort(options) {
-	const port = new osc.SLIPPort(options)
-	port.sendRaw = vi.fn()
-	return port
+function mockSLIPPort(options?: SLIPPortOptions) {
+	return Object.assign(new osc.SLIPPort(options), { sendRaw: vi.fn() })
 }
 
 describe('Port', () => {
@@ -61,7 +58,7 @@ describe('Port', () => {
 
 	test('known quirk: encodeOSC unwraps a packet with a "buffer" property', () => {
 		const port = mockPort()
-		expect(toArray(port.encodeOSC({ buffer: message }))).toEqual(encodedMessage)
+		expect(toArray(port.encodeOSC({ buffer: message } as any))).toEqual(encodedMessage)
 	})
 
 	test('known quirk: sending an invalid packet emits an error, and then throws', () => {
@@ -137,7 +134,7 @@ describe('Port', () => {
 })
 
 describe('Packet events', () => {
-	const bundle = {
+	const bundle: OscBundleInput = {
 		timeTag: { raw: [3608492400, 0] },
 		packets: [
 			{ address: '/one', args: [] },
@@ -147,7 +144,7 @@ describe('Packet events', () => {
 
 	test('a bundle emits bundle events, then a message event for each message, with its bundle time tag', () => {
 		const port = new osc.Port({ metadata: true })
-		const events = []
+		const events: unknown[][] = []
 		port.on('bundle', (b, timeTag, info) => events.push(['bundle', b.timeTag.raw, timeTag?.raw, info]))
 		port.on('message', (m, timeTag, info) => events.push(['message', m.address, timeTag?.raw, info]))
 
@@ -166,7 +163,7 @@ describe('Packet events', () => {
 		const port = new osc.Port()
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
-		osc.firePacketEvents(port, { address: '/a' }, 'tt', 'info')
+		untypedOsc.firePacketEvents(port, { address: '/a' }, 'tt', 'info')
 		expect(onMessage).toHaveBeenCalledWith({ address: '/a' }, 'tt', 'info')
 	})
 
@@ -210,13 +207,13 @@ describe('SLIPPort', () => {
 		const port = mockSLIPPort()
 		const onError = vi.fn()
 		port.on('error', onError)
-		expect(port.encodeOSC({ foo: 1 })).toBeUndefined()
+		expect(port.encodeOSC({ foo: 1 } as any)).toBeUndefined()
 		expect(onError).toHaveBeenCalledTimes(1)
 	})
 
 	test('known quirk: SLIPPort.encodeOSC also unwraps a packet with a "buffer" property', () => {
 		const port = mockSLIPPort()
-		expect(toArray(port.encodeOSC({ buffer: message }))).toEqual(toArray(slip.encode(encodedMessage)))
+		expect(toArray(port.encodeOSC({ buffer: message } as any))).toEqual(toArray(slip.encode(encodedMessage)))
 	})
 
 	test('decodes SLIP-framed messages split across several chunks', () => {
@@ -225,9 +222,9 @@ describe('SLIPPort', () => {
 		port.on('message', onMessage)
 
 		const framed = toArray(slip.encode(encodedMessage))
-		port.emit('data', new Uint8Array(framed.slice(0, 5)))
+		port.emit('data', new Uint8Array(framed.slice(0, 5)), undefined)
 		expect(onMessage).not.toHaveBeenCalled()
-		port.emit('data', new Uint8Array([...framed.slice(5), ...framed]))
+		port.emit('data', new Uint8Array([...framed.slice(5), ...framed]), undefined)
 
 		expect(onMessage).toHaveBeenCalledTimes(2)
 		expect(onMessage.mock.calls[0][0]).toEqual(message)
@@ -256,7 +253,7 @@ describe('SLIPPort', () => {
 		port.decoder.msgBuffer = new Uint8Array(2)
 		const onError = vi.fn()
 		port.on('error', onError)
-		port.emit('data', new Uint8Array([slip.END, 1, 2, 3]))
+		port.emit('data', new Uint8Array([slip.END, 1, 2, 3]), undefined)
 		expect(onError).toHaveBeenCalledTimes(1)
 		expect(onError.mock.calls[0][0]).toBeInstanceOf(Uint8Array)
 	})

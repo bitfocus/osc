@@ -1,47 +1,46 @@
 import { EventEmitter } from 'node:events'
-import net from 'node:net'
-import { afterEach, describe, expect, test, vi } from 'vitest'
-import { nextEvent, slip, toArray, osc } from './helpers.mjs'
+import net, { type AddressInfo } from 'node:net'
+import { afterEach, describe, expect, test, vi, type Mock } from 'vitest'
+import type { OscMessage, OscMessageInput, TCPSocketPort, TCPSocketPortOptions } from '../src/index.js'
+import { nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
 
-const message = { address: '/test/freq', args: [440] }
+const message: OscMessageInput = { address: '/test/freq', args: [440] }
 
-const cleanup = []
+const cleanup: Array<() => unknown> = []
 afterEach(async () => {
 	for (const fn of cleanup.splice(0)) await fn()
 })
 
 /** Starts a TCP server on an ephemeral port, wrapping each connection in a TCPSocketPort */
-async function startServer(options = {}) {
-	const connections = []
+async function startServer(options: TCPSocketPortOptions = {}) {
+	const connections: TCPSocketPort[] = []
 	const server = net.createServer((socket) => {
 		connections.push(new osc.TCPSocketPort({ socket, ...options }))
 		server.emit('oscConnection', connections[connections.length - 1])
 	})
-	await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+	await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
 	cleanup.push(async () => {
-		for (const c of connections) c.socket.destroy()
+		for (const c of connections) c.socket!.destroy()
 		await new Promise((resolve) => server.close(resolve))
 	})
-	return { server, port: server.address().port }
+	return { server, port: (server.address() as AddressInfo).port }
 }
 
 /** Opens a client TCPSocketPort to the given port, resolving once it is connected */
-async function connectClient(port, options = {}) {
+async function connectClient(port: number, options: TCPSocketPortOptions = {}): Promise<TCPSocketPort> {
 	const client = new osc.TCPSocketPort({ address: '127.0.0.1', port, ...options })
 	const ready = nextEvent(client, 'ready')
 	client.open()
 	await ready
-	cleanup.push(() => client.socket.destroy())
+	cleanup.push(() => client.socket!.destroy())
 	return client
 }
 
+type FakeSocket = net.Socket & { write: Mock; end: Mock; connect: Mock }
+
 /** A stand-in for a net.Socket */
-function fakeSocket() {
-	const socket = new EventEmitter()
-	socket.write = vi.fn()
-	socket.end = vi.fn()
-	socket.connect = vi.fn()
-	return socket
+function fakeSocket(): FakeSocket {
+	return Object.assign(new EventEmitter(), { write: vi.fn(), end: vi.fn(), connect: vi.fn() }) as unknown as FakeSocket
 }
 
 describe('TCPSocketPort', () => {
@@ -62,7 +61,7 @@ describe('TCPSocketPort', () => {
 	})
 
 	test('known quirk: constructing without an options object throws', () => {
-		expect(() => new osc.TCPSocketPort()).toThrow(TypeError)
+		expect(() => new untypedOsc.TCPSocketPort()).toThrow(TypeError)
 	})
 
 	test('sends a message from a client to a server', async () => {
@@ -97,9 +96,9 @@ describe('TCPSocketPort', () => {
 		const client = await connectClient(port)
 		const [serverPort] = await connection
 
-		const addresses = []
-		const done = new Promise((resolve) => {
-			serverPort.on('message', (msg) => {
+		const addresses: string[] = []
+		const done = new Promise<void>((resolve) => {
+			serverPort.on('message', (msg: OscMessage) => {
 				addresses.push(msg.address)
 				if (addresses.length === 50) resolve()
 			})
@@ -117,7 +116,7 @@ describe('TCPSocketPort', () => {
 		const [serverPort] = await connection
 
 		const received = nextEvent(serverPort, 'message')
-		client.socket.write(Buffer.from(osc.writePacket(message)))
+		client.socket!.write(Buffer.from(osc.writePacket(message)))
 		expect((await received)[0]).toEqual(message)
 	})
 
@@ -140,8 +139,8 @@ describe('TCPSocketPort', () => {
 		const ready = nextEvent(client, 'ready')
 		client.open('127.0.0.1', port)
 		await ready
-		cleanup.push(() => client.socket.destroy())
-		expect(client.socket.remotePort).toBe(port)
+		cleanup.push(() => client.socket!.destroy())
+		expect(client.socket!.remotePort).toBe(port)
 	})
 
 	test('emits close, and whether it was due to an error, when the connection ends', async () => {
@@ -158,7 +157,7 @@ describe('TCPSocketPort', () => {
 	test('emits connection errors', async () => {
 		// Find a port with nothing listening on it
 		const { port } = await startServer()
-		await cleanup.pop()()
+		await cleanup.pop()!()
 
 		const client = new osc.TCPSocketPort({ address: '127.0.0.1', port })
 		const error = nextEvent(client, 'error')
@@ -179,9 +178,9 @@ describe('TCPSocketPort', () => {
 		test('emits data, error, close and ready events from the socket', () => {
 			const socket = fakeSocket()
 			const port = new osc.TCPSocketPort({ socket })
-			const events = []
+			const events: unknown[][] = []
 			for (const event of ['message', 'error', 'close', 'ready']) {
-				port.on(event, (...args) => events.push([event, ...args]))
+				;(port as any).on(event, (...args: unknown[]) => events.push([event, ...args]))
 			}
 
 			socket.emit('data', Buffer.from(slip.encode(osc.writePacket(message))))

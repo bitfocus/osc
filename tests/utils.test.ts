@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { toArray, osc } from './helpers.mjs'
+import { osc, toArray, untypedOsc } from './helpers.js'
 
 describe('Type checks', () => {
 	test('isArray', () => {
@@ -85,7 +85,7 @@ describe('byteArray', () => {
 		{ name: 'a number', value: 42 },
 		{ name: 'an object without a length', value: { a: 1 } },
 	])('throws for $name', ({ value }) => {
-		expect(() => osc.byteArray(value)).toThrow("Can't wrap a non-array-like object as Uint8Array")
+		expect(() => untypedOsc.byteArray(value)).toThrow("Can't wrap a non-array-like object as Uint8Array")
 	})
 })
 

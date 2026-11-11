@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import type { ReadTimeTag } from '../src/index.js'
 import {
 	dv,
 	float32,
@@ -9,7 +10,8 @@ import {
 	stringToDataView,
 	toArray,
 	osc,
-} from './helpers.mjs'
+	untypedOsc,
+} from './helpers.js'
 
 afterEach(() => {
 	vi.useRealTimers()
@@ -64,7 +66,7 @@ describe('Strings', () => {
 		const msg = { address: '/thecat', args: JSON.stringify(objectArg) }
 		const decoded = osc.readMessage(osc.writeMessage(msg))
 		expect(decoded).toEqual(msg)
-		expect(JSON.parse(decoded.args)).toEqual(objectArg)
+		expect(JSON.parse(decoded.args as string)).toEqual(objectArg)
 	})
 
 	test('gh-40: stringified extended character object as string argument', () => {
@@ -72,7 +74,7 @@ describe('Strings', () => {
 		const msg = { address: '/thecat', args: encodeURIComponent(JSON.stringify(objectArg)) }
 		const decoded = osc.readMessage(osc.writeMessage(msg))
 		expect(decoded).toEqual(msg)
-		expect(JSON.parse(decodeURIComponent(decoded.args))).toEqual(objectArg)
+		expect(JSON.parse(decodeURIComponent(decoded.args as string))).toEqual(objectArg)
 	})
 
 	test('utf-8 address and string argument round trip', () => {
@@ -149,7 +151,7 @@ describe('Numbers', () => {
 		{ writer: 'writeFloat64', name: 'with offset', val: -0.5, offset: 4, expected: [0, 0, 0, 0, ...float64(-0.5)] },
 	])('$writer $name', ({ writer, val, offset, expected }) => {
 		const view = new DataView(new ArrayBuffer(expected.length))
-		expect(toArray(osc[writer](val, view, offset))).toEqual(expected)
+		expect(toArray(untypedOsc[writer](val, view, offset))).toEqual(expected)
 	})
 
 	test('writeInt32 / writeFloat32 / writeFloat64 without a DataView', () => {
@@ -313,7 +315,7 @@ describe('Type-only arguments', () => {
 })
 
 describe('Time tags', () => {
-	const specs = [
+	const specs: Array<{ name: string; bytes: number[]; timeTag: ReadTimeTag }> = [
 		{
 			name: 'with seconds only',
 			// May 4, 2014 at 0:00:00 UTC.

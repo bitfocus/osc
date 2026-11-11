@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'vitest'
-import { int32, normalise, oscString, toArray, osc } from './helpers.mjs'
+import type { OscBundleInput, OscMessageInput, OscMetaArgument, OscOptions, OscPacketInput } from '../src/index.js'
+import { int32, normalise, osc, oscString, toArray, untypedOsc } from './helpers.js'
 
-const messageSpecs = [
+const messageSpecs: Array<{
+	name: string
+	bytes: number[]
+	message: OscMessageInput
+	expected?: unknown
+	options: OscOptions | undefined
+}> = [
 	{
 		name: 'float and array example without type metadata',
 		// Without type metadata, the numbers must be interpreted as floats.
@@ -116,7 +123,7 @@ describe('Messages', () => {
 		const bytes = toArray(osc.writeMessage({ address: '/b', args: [{ type: 'b', value: [1, 2, 3] }] }))
 		const backing = new Uint8Array([9, 9, 9, 9, ...bytes])
 		const actual = osc.readMessage(backing.subarray(4), { metadata: true, unpackSingleArgs: true })
-		expect(toArray(actual.args.value)).not.toEqual([1, 2, 3])
+		expect(toArray((actual.args as OscMetaArgument).value as Uint8Array)).not.toEqual([1, 2, 3])
 	})
 
 	test('unpackSingleArgs: false keeps a single argument in an array', () => {
@@ -130,7 +137,7 @@ describe('Messages', () => {
 	})
 
 	test('gh-17: a float with type metadata', () => {
-		const msg = { address: '/sl/1/down', args: [{ type: 'f', value: 444.4 }] }
+		const msg: OscMessageInput = { address: '/sl/1/down', args: [{ type: 'f', value: 444.4 }] }
 		const decoded = osc.readMessage(osc.writeMessage(msg), { metadata: true })
 		expect(normalise(decoded)).toEqual(normalise(msg))
 	})
@@ -147,7 +154,7 @@ describe('Messages', () => {
 		{ name: 'an empty address', message: { address: '', args: [] } },
 		{ name: 'an address without a leading slash', message: { address: 'foo', args: [] } },
 	])('writeMessage throws for $name', ({ message }) => {
-		expect(() => osc.writeMessage(message)).toThrow('An OSC message must contain a valid address')
+		expect(() => untypedOsc.writeMessage(message)).toThrow('An OSC message must contain a valid address')
 	})
 
 	test('isValidMessage', () => {
@@ -175,7 +182,7 @@ const bundleBytes = [
 	192, 192, 0, 0, 100, 66, 0, 0,
 ]
 
-const bundle = {
+const bundle: OscBundleInput = {
 	timeTag: { raw: [3608492400, 0], native: 1399503600000 },
 	packets: [
 		{ address: '/cat/meow/freq', args: [{ type: 'f', value: 222.2 }] },
@@ -208,7 +215,7 @@ describe('Bundles', () => {
 	})
 
 	test('writeBundle with the default options', () => {
-		const simple = { timeTag: { raw: [0, 1] }, packets: [{ address: '/a', args: [1] }] }
+		const simple: OscBundleInput = { timeTag: { raw: [0, 1] }, packets: [{ address: '/a', args: [1] }] }
 		expect(toArray(osc.writeBundle(simple))).toEqual([
 			...oscString('#bundle'),
 			0,
@@ -230,7 +237,7 @@ describe('Bundles', () => {
 	})
 
 	test('an empty bundle', () => {
-		const empty = { timeTag: { raw: [3608492400, 0] }, packets: [] }
+		const empty: OscBundleInput = { timeTag: { raw: [3608492400, 0] }, packets: [] }
 		const written = osc.writeBundle(empty)
 		expect(toArray(written)).toEqual([...oscString('#bundle'), 215, 21, 57, 112, 0, 0, 0, 0])
 		expect(osc.readPacket(written, metadataOptions)).toEqual({
@@ -248,7 +255,7 @@ describe('Bundles', () => {
 		{ name: 'no time tag', value: { packets: [] } },
 		{ name: 'no packets', value: { timeTag: osc.timeTag() } },
 	])('writeBundle throws for $name', ({ value }) => {
-		expect(() => osc.writeBundle(value)).toThrow("An OSC bundle must contain 'timeTag' and 'packets' properties")
+		expect(() => untypedOsc.writeBundle(value)).toThrow("An OSC bundle must contain 'timeTag' and 'packets' properties")
 	})
 
 	test('isValidBundle', () => {
@@ -275,8 +282,8 @@ describe('Packets', () => {
 	})
 
 	test('known quirk: readPacket, unlike readMessage, requires an options object for messages with arguments', () => {
-		expect(osc.readPacket(osc.writeMessage({ address: '/a', args: [] }))).toEqual({ address: '/a', args: [] })
-		expect(() => osc.readPacket(osc.writeMessage({ address: '/a', args: [1] }))).toThrow(TypeError)
+		expect(untypedOsc.readPacket(osc.writeMessage({ address: '/a', args: [] }))).toEqual({ address: '/a', args: [] })
+		expect(() => untypedOsc.readPacket(osc.writeMessage({ address: '/a', args: [1] }))).toThrow(TypeError)
 	})
 
 	test('known quirk: any header starting with "#" is read as a bundle', () => {
@@ -285,19 +292,19 @@ describe('Packets', () => {
 	})
 
 	test('writePacket of a message and a bundle', () => {
-		const message = { address: '/a', args: [1] }
+		const message: OscMessageInput = { address: '/a', args: [1] }
 		expect(osc.writePacket(message)).toEqual(osc.writeMessage(message))
 		expect(osc.writePacket(bundle, { metadata: true })).toEqual(osc.writeBundle(bundle, { metadata: true }))
 	})
 
 	test('writePacket throws for something that is neither a message nor a bundle', () => {
-		expect(() => osc.writePacket({ foo: 1 })).toThrow(
+		expect(() => untypedOsc.writePacket({ foo: 1 })).toThrow(
 			'The specified packet was not recognized as a valid OSC message or bundle',
 		)
 	})
 
 	test('gh-102: array-typed arguments with type metadata', () => {
-		const message = {
+		const message: OscPacketInput = {
 			address: '/float/andArray',
 			args: [
 				{ type: 'f', value: 440.0 },

@@ -1,31 +1,40 @@
 import { EventEmitter } from 'node:events'
-import { PassThrough } from 'node:stream'
+import { PassThrough, type Readable, type Writable } from 'node:stream'
 import { describe, expect, test, vi } from 'vitest'
-import { nextEvent, osc, slip, toArray } from './helpers.mjs'
+import type { OscMessageInput, PortOptions, SLIPPortOptions } from '../src/index.js'
+import { nextEvent, osc, slip, toArray } from './helpers.js'
 
 // These transports are built only on the public API, as an application (or a separate package) would build one.
 // They stand in for the serial port and Web Socket transports that this fork removed.
 
-const message = { address: '/test/freq', args: [440] }
+const message: OscMessageInput = { address: '/test/freq', args: [440] }
+
+interface StreamPortOptions extends SLIPPortOptions {
+	readable: Readable
+	writable: Writable
+}
 
 /**
  * A stream transport, in the style of the removed serial port transport: osc.SLIPPort does the SLIP framing, so the
  * transport only has to move bytes.
  */
 class StreamPort extends osc.SLIPPort {
-	constructor(options) {
+	readonly readable: Readable
+	readonly writable: Writable
+
+	constructor(options: StreamPortOptions) {
 		super(options)
 		this.readable = options.readable
 		this.writable = options.writable
 	}
 
-	open() {
-		this.readable.on('data', (data) => this.emit('data', data, undefined))
+	override open(): void {
+		this.readable.on('data', (data: Buffer) => this.emit('data', data, undefined))
 		this.readable.on('close', () => this.emit('close'))
 		this.emit('ready')
 	}
 
-	sendRaw(encoded) {
+	override sendRaw(encoded: Uint8Array): void {
 		if (this.writable.destroyed) {
 			osc.fireClosedPortSendError(this)
 			return
@@ -33,39 +42,55 @@ class StreamPort extends osc.SLIPPort {
 		this.writable.write(encoded)
 	}
 
-	close() {
+	close(): void {
 		this.readable.destroy()
 	}
 }
 
+/** Where a message came from, as the fake socket reports it */
+interface MessageInfo {
+	from: string
+}
+
+/** A socket that delivers whole messages, like a Web Socket */
+interface MessageSocket extends EventEmitter<{ message: [data: Uint8Array, info: MessageInfo]; close: [] }> {
+	send(data: Uint8Array): void
+}
+
+interface MessagePortOptions extends PortOptions {
+	socket: MessageSocket
+}
+
 /**
  * A message transport, in the style of the removed Web Socket transport: each message on the socket is one OSC
- * packet, so it extends the unframed osc.Port.
+ * packet, so it extends the unframed osc.Port. Its packet info is typed by the Port's type parameter.
  */
-class MessagePort extends osc.Port {
-	constructor(options) {
+class MessagePort extends osc.Port<MessageInfo> {
+	readonly socket: MessageSocket
+
+	constructor(options: MessagePortOptions) {
 		super(options)
 		this.socket = options.socket
 		this.socket.on('message', (data, info) => this.emit('data', data, info))
 		this.socket.on('close', () => this.emit('close'))
 	}
 
-	sendRaw(encoded) {
+	override sendRaw(encoded: Uint8Array): void {
 		this.socket.send(encoded)
 	}
 }
 
 /** A connected pair of fake message sockets */
-function socketPair() {
-	const a = new EventEmitter()
-	const b = new EventEmitter()
+function socketPair(): [MessageSocket, MessageSocket] {
+	const a = new EventEmitter() as MessageSocket
+	const b = new EventEmitter() as MessageSocket
 	a.send = (data) => setImmediate(() => b.emit('message', data, { from: 'a' }))
 	b.send = (data) => setImmediate(() => a.emit('message', data, { from: 'b' }))
 	return [a, b]
 }
 
 describe('A custom stream (SLIP framed) transport', () => {
-	function streamPortPair(options = {}) {
+	function streamPortPair(options: SLIPPortOptions = {}): [StreamPort, StreamPort, PassThrough] {
 		const aToB = new PassThrough()
 		const bToA = new PassThrough()
 		const a = new StreamPort({ ...options, readable: bToA, writable: aToB })

@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { slip, toArray, osc } from './helpers.mjs'
+import { slip, toArray } from './helpers.js'
 
 const { END, ESC, ESC_END, ESC_ESC } = slip
 

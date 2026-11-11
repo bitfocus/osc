@@ -294,7 +294,7 @@ class SerialOSCPort extends osc.SLIPPort {
 
 The SLIP codec is also available on its own, as <code>osc.slip</code> (<code>osc.slip.encode(bytes)</code> and <code>new osc.slip.Decoder({ onMessage })</code>), for transports that need to do their own framing.
 
-See <code>tests/custom-transports.test.mjs</code> for working stream and message transports built this way.
+See <code>tests/custom-transports.test.ts</code> for working stream and message transports built this way.
 
 ### OSC Bundle and Message Objects
 
