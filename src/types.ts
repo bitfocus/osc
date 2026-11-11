@@ -82,8 +82,13 @@ export type OscMetaArgument = {
 
 /** An argument with type metadata, for writing */
 export type OscMetaArgumentInput = {
-	[T in OscArgumentType]: { type: T; value: OscArgumentInputValues[T] }
+	[T in OscArgumentType]: T extends OscTypeOnlyArgumentType
+		? { type: T; value?: unknown }
+		: { type: T; value: OscArgumentInputValues[T] }
 }[OscArgumentType]
+
+/** The types of argument that have no value: true, false, nil and impulse */
+export type OscTypeOnlyArgumentType = 'T' | 'F' | 'N' | 'I'
 
 /** The value of an argument, as read */
 export type OscArgumentValue = OscArgumentValues[OscArgumentType]

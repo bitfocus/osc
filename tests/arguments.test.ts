@@ -188,12 +188,21 @@ describe('writeArguments', () => {
 		expect(toArray(osc.writeArguments([], {}))).toEqual(oscString(','))
 	})
 
-	test('known quirk: with type metadata on, an untyped argument throws', () => {
-		expect(() => osc.writeArguments([1], { metadata: true })).toThrow(TypeError)
+	test('with type metadata on, an untyped argument throws', () => {
+		expect(() => osc.writeArguments([1], { metadata: true })).toThrow(
+			'An argument has no OSC type. With the metadata option set, every argument must be a { type, value } object. Argument was: 1'
+		)
+		expect(() => osc.writeArguments([10n], { metadata: true })).toThrow('Argument was: "10n"')
 	})
 
-	test('known quirk: an unknown type throws a TypeError rather than a descriptive error', () => {
-		expect(() => untypedOsc.writeArguments([{ type: 'x', value: 1 }], { metadata: true })).toThrow(TypeError)
+	test('an unknown type throws', () => {
+		expect(() => untypedOsc.writeArguments([{ type: 'x', value: 1 }], { metadata: true })).toThrow(
+			"'x' is not a valid OSC type tag."
+		)
+		// Not mistaken for a property of every object
+		expect(() => untypedOsc.writeArguments([{ type: 'toString', value: 1 }], {})).toThrow(
+			"'toString' is not a valid OSC type tag."
+		)
 	})
 })
 
@@ -238,12 +247,13 @@ describe('Type inference', () => {
 		expect(osc.annotateArguments([{ type: 'N', value: null }])).toEqual([{ type: 'N', value: null }])
 	})
 
-	test('known quirk: a typed argument without a value is not recognised as typed', () => {
-		expect(() => untypedOsc.annotateArguments([{ type: 'T' }])).toThrow("Can't infer OSC argument type for value")
+	test('a type-only argument needs no value', () => {
+		expect(osc.annotateArguments([{ type: 'T' }])).toEqual([{ type: 'T' }])
+		expect(toArray(osc.writeArguments([{ type: 'T' }, { type: 'N' }], {}))).toEqual(oscString(',TN'))
 	})
 
-	test('known quirk: a null argument throws, rather than being inferred as nil', () => {
-		expect(() => osc.annotateArguments([null])).toThrow(TypeError)
+	test('a null argument is inferred as nil', () => {
+		expect(osc.annotateArguments([null])).toEqual([{ type: 'N', value: null }])
 	})
 
 	test('gh-36: a bigint argument is written as an int64', () => {

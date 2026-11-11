@@ -41,6 +41,16 @@ const textEncoder = new TextEncoder()
 /** Anything that can be wrapped as bytes: an ArrayBuffer, a typed array or DataView, or an array of octets */
 export type ByteSource = ArrayBuffer | ArrayBufferView | ArrayLike<number>
 
+/** Describes a value for an error message; unlike JSON.stringify alone, this copes with bigints */
+function describeValue(value: unknown): string {
+	return String(JSON.stringify(value, (_key, v: unknown) => (typeof v === 'bigint' ? `${v}n` : v), 2))
+}
+
+/** Whether a value is a { type, value } argument (value is optional, for the types that have none) */
+function isTypedArgument(arg: unknown): arg is OscMetaArgumentInput {
+	return typeof arg === 'object' && arg !== null && typeof (arg as { type?: unknown }).type === 'string'
+}
+
 // Unsupported, non-API function.
 export function isArray(obj: unknown): obj is unknown[] {
 	return Array.isArray(obj)
@@ -100,7 +110,7 @@ export function byteArray(obj: ByteSource): Uint8Array {
 		!(obj instanceof ArrayBuffer) &&
 		(typeof (obj as { length?: unknown }).length === 'undefined' || typeof obj === 'string')
 	) {
-		throw new Error("Can't wrap a non-array-like object as Uint8Array. Object was: " + JSON.stringify(obj, null, 2))
+		throw new Error("Can't wrap a non-array-like object as Uint8Array. Object was: " + describeValue(obj))
 	}
 
 	return new Uint8Array(obj as ArrayBuffer | ArrayLike<number>)
@@ -652,7 +662,7 @@ export function readArgument(
 	dv: DataView,
 	offsetState: OffsetState
 ): OscMetaArgument {
-	const typeSpec = argumentTypes[argType as OscArgumentType] as ArgumentTypeSpec | undefined
+	const typeSpec = Object.hasOwn(argumentTypes, argType) ? argumentTypes[argType as OscArgumentType] : undefined
 	if (!typeSpec) {
 		throw new Error("'" + argType + "' is not a valid OSC type tag. Type tag string was: " + typeTagString)
 	}
@@ -765,19 +775,29 @@ export function writeArrayArguments(args: OscArgumentInput[], dataCollection: Da
 
 /**
  * Writes a typed argument (or array of them) into the collection, returning its type tag.
- *
- * Known quirk: an untyped argument, or one of an unknown type, throws a TypeError.
  */
 export function writeArgument(arg: OscArgumentInput, dataCollection: DataCollection): string {
 	if (isArray(arg)) {
 		return writeArrayArguments(arg, dataCollection)
 	}
 
-	const type = (arg as OscMetaArgumentInput).type
+	if (!isTypedArgument(arg)) {
+		throw new Error(
+			'An argument has no OSC type. With the metadata option set, every argument must be a { type, value } ' +
+				'object. Argument was: ' +
+				describeValue(arg)
+		)
+	}
+
+	const type = arg.type
+	if (!Object.hasOwn(argumentTypes, type)) {
+		throw new Error("'" + type + "' is not a valid OSC type tag. Argument was: " + describeValue(arg))
+	}
+
 	const writer = argumentTypes[type].writer
 
 	if (writer) {
-		const data = writer((arg as OscMetaArgumentInput).value as never)
+		const data = writer(arg.value as never)
 		addDataPart(data, dataCollection)
 	} else {
 		// Type-only arguments (eg T, F, N, I) have no data to write.
@@ -877,7 +897,7 @@ export function writeMessage(msg: OscMessageInput, options?: OscOptions): Uint8A
 	options = options || defaults
 
 	if (!isValidMessage(msg)) {
-		throw new Error('An OSC message must contain a valid address. Message was: ' + JSON.stringify(msg, null, 2))
+		throw new Error('An OSC message must contain a valid address. Message was: ' + describeValue(msg))
 	}
 
 	const msgCollection = collectMessageParts(msg, options)
@@ -940,9 +960,7 @@ export function collectBundlePackets(
 export function writeBundle(bundle: OscBundleInput, options?: OscOptions): Uint8Array {
 	if (!isValidBundle(bundle)) {
 		throw new Error(
-			"An OSC bundle must contain 'timeTag' and 'packets' properties. " +
-				'Bundle was: ' +
-				JSON.stringify(bundle, null, 2)
+			"An OSC bundle must contain 'timeTag' and 'packets' properties. " + 'Bundle was: ' + describeValue(bundle)
 		)
 	}
 
@@ -1030,7 +1048,7 @@ export function writePacket(packet: OscPacketInput, options?: OscOptions): Uint8
 		throw new Error(
 			'The specified packet was not recognized as a valid OSC message or bundle.' +
 				' Packet was: ' +
-				JSON.stringify(packet, null, 2)
+				describeValue(packet)
 		)
 	}
 }
@@ -1059,13 +1077,11 @@ export function inferTypeForArgument(arg: unknown): OscArgumentType {
 			break
 	}
 
-	throw new Error("Can't infer OSC argument type for value: " + JSON.stringify(arg, null, 2))
+	throw new Error("Can't infer OSC argument type for value: " + describeValue(arg))
 }
 
 /**
  * Wraps each argument with an inferred type, keeping those already typed.
- *
- * Known quirks: a null argument throws a TypeError, and a typed argument without a value is not recognised as typed.
  */
 // Unsupported, non-API function.
 export function annotateArguments(args: OscArgumentInput[]): OscArgumentInput[] {
@@ -1075,11 +1091,7 @@ export function annotateArguments(args: OscArgumentInput[]): OscArgumentInput[] 
 		const arg = args[i]
 		let msgArg: OscArgumentInput
 
-		if (
-			typeof arg === 'object' &&
-			(arg as OscMetaArgumentInput).type &&
-			(arg as OscMetaArgumentInput).value !== undefined
-		) {
+		if (isTypedArgument(arg)) {
 			// We've got an explicitly typed argument.
 			msgArg = arg
 		} else if (isArray(arg)) {
