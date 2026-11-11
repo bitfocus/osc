@@ -10,7 +10,7 @@
 /* global require, module */
 
 var osc = osc || require("./osc.js"),
-    slip = slip || require("slip"),
+    slip = slip || require("./slip.js"),
     EventEmitter = EventEmitter || require("events").EventEmitter;
 
 (function () {

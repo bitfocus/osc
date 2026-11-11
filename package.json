@@ -27,7 +27,6 @@
     },
     "dependencies": {
         "long": "4.0.0",
-        "slip": "1.0.2",
         "wolfy87-eventemitter": "5.2.9"
     },
     "scripts": {
