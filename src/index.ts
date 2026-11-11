@@ -18,8 +18,6 @@ export * from './transports.js'
 export * from './types.js'
 export * from './udp.js'
 export * from './tcp.js'
-// Both a value (the constructor) and a type (its instances); resolves the overlap between the two star exports
-export { Long } from './osc.js'
 
 const osc = {
 	...codec,

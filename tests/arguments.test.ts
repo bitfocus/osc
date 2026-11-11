@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import type { OscArgumentInput, OscMetaArgument } from '../src/index.js'
+import type { OscArgumentInput } from '../src/index.js'
 import { dv, normalise, osc, oscString, toArray, untypedOsc } from './helpers.js'
 
 /** Wraps each argument (recursing into arrays) with the type tag at the same position */
@@ -107,7 +107,7 @@ const specs = [
 			'z',
 			{ r: 128, g: 64, b: 192, a: 1.0 },
 			new Uint8Array([1, 144, 69, 101]),
-			new osc.Long(0xffffffff, 0x7fffffff),
+			9223372036854775807n,
 		],
 	},
 ]
@@ -202,8 +202,7 @@ describe('Type inference', () => {
 		{ name: 'a Uint8Array', value: new Uint8Array(1), type: 'b' },
 		{ name: 'a Buffer', value: Buffer.alloc(1), type: 'b' },
 		{ name: 'an ArrayBuffer', value: new ArrayBuffer(1), type: 'b' },
-		{ name: 'a Long', value: osc.Long.fromNumber(1), type: 'h' },
-		{ name: 'a Long-like object', value: { high: 0, low: 1 }, type: 'h' },
+		{ name: 'a bigint', value: 1n, type: 'h' },
 	])('inferTypeForArgument of $name', ({ value, type }) => {
 		expect(osc.inferTypeForArgument(value)).toBe(type)
 	})
@@ -213,10 +212,6 @@ describe('Type inference', () => {
 		{ name: 'a function', value: () => {} },
 	])('inferTypeForArgument throws for $name', ({ value }) => {
 		expect(() => osc.inferTypeForArgument(value)).toThrow("Can't infer OSC argument type for value")
-	})
-
-	test('known quirk: inferTypeForArgument of a bigint throws while building its error message', () => {
-		expect(() => osc.inferTypeForArgument(1n)).toThrow('Do not know how to serialize a BigInt')
 	})
 
 	test('annotateArguments infers types, keeps typed arguments, and recurses into arrays', () => {
@@ -244,13 +239,13 @@ describe('Type inference', () => {
 		expect(() => osc.annotateArguments([null])).toThrow(TypeError)
 	})
 
-	test('gh-36: a Long argument is written as an int64', () => {
-		const long = new osc.Long(0xffffffff, 0x7fffffff)
-		const encoded = osc.writeMessage({ address: '/cat/slash', args: [long] }, { metadata: false })
-		const decoded = osc.readMessage(encoded, { metadata: true })
-		const args = decoded.args as OscMetaArgument[]
-		expect(args).toHaveLength(1)
-		expect(args[0].type).toBe('h')
-		expect((args[0].value as InstanceType<typeof osc.Long>).equals(long)).toBe(true)
+	test('gh-36: a bigint argument is written as an int64', () => {
+		const encoded = osc.writeMessage({ address: '/cat/slash', args: [9223372036854775807n] })
+		expect(osc.readMessage(encoded).args).toEqual([{ type: 'h', value: 9223372036854775807n }])
+	})
+
+	test('a number can be written as an int64 when typed as one', () => {
+		const encoded = osc.writeMessage({ address: '/a', args: [{ type: 'h', value: -5 }] })
+		expect(osc.readMessage(encoded).args).toEqual([{ type: 'h', value: -5n }])
 	})
 })

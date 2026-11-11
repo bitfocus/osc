@@ -171,30 +171,44 @@ describe('Numbers', () => {
 	})
 
 	describe('int64', () => {
-		test('readInt64 returns a signed Long', () => {
+		test('readInt64 returns a signed bigint', () => {
 			const offsetState = { idx: 0 }
-			const actual = osc.readInt64(dv([127, 255, 255, 255, 255, 255, 255, 255]), offsetState)
-			expect(actual).toBeInstanceOf(osc.Long)
-			expect(actual.toString()).toBe('9223372036854775807')
-			expect(actual.unsigned).toBe(false)
+			expect(osc.readInt64(dv([127, 255, 255, 255, 255, 255, 255, 255]), offsetState)).toBe(9223372036854775807n)
 			expect(offsetState.idx).toBe(8)
 		})
 
 		test('readInt64 of a negative value', () => {
-			expect(osc.readInt64(dv([255, 255, 255, 255, 255, 255, 255, 254]), { idx: 0 }).toString()).toBe('-2')
+			expect(osc.readInt64(dv([255, 255, 255, 255, 255, 255, 255, 254]), { idx: 0 })).toBe(-2n)
 		})
 
-		test('writeInt64 writes the high then low words', () => {
-			expect(toArray(osc.writeInt64(osc.Long.fromString('9223372036854775807')))).toEqual([
-				127, 255, 255, 255, 255, 255, 255, 255,
-			])
-			expect(toArray(osc.writeInt64(osc.Long.fromNumber(-2)))).toEqual([255, 255, 255, 255, 255, 255, 255, 254])
-			expect(toArray(osc.writeInt64({ high: 1, low: 2 }))).toEqual([0, 0, 0, 1, 0, 0, 0, 2])
+		test('readInt64 at an offset', () => {
+			const offsetState = { idx: 4 }
+			expect(osc.readInt64(dv([9, 9, 9, 9, 0, 0, 0, 1, 0, 0, 0, 2]), offsetState)).toBe(0x100000002n)
+			expect(offsetState.idx).toBe(12)
 		})
 
-		test('known quirk: writeInt64 into a DataView throws, as each half returns the whole buffer', () => {
-			const view = new DataView(new ArrayBuffer(8))
-			expect(() => osc.writeInt64({ high: 1, low: 2 }, view, 0)).toThrow(RangeError)
+		test('writeInt64 of a bigint', () => {
+			expect(toArray(osc.writeInt64(9223372036854775807n))).toEqual([127, 255, 255, 255, 255, 255, 255, 255])
+			expect(toArray(osc.writeInt64(-2n))).toEqual([255, 255, 255, 255, 255, 255, 255, 254])
+			expect(toArray(osc.writeInt64(0x100000002n))).toEqual([0, 0, 0, 1, 0, 0, 0, 2])
+		})
+
+		test('writeInt64 of an integer number', () => {
+			expect(toArray(osc.writeInt64(-2))).toEqual([255, 255, 255, 255, 255, 255, 255, 254])
+		})
+
+		test('writeInt64 of a number that is not an integer throws', () => {
+			expect(() => osc.writeInt64(1.5)).toThrow(RangeError)
+		})
+
+		test('writeInt64 wraps values outside the signed 64-bit range', () => {
+			expect(toArray(osc.writeInt64(2n ** 64n - 1n))).toEqual([255, 255, 255, 255, 255, 255, 255, 255])
+		})
+
+		test('writeInt64 into a DataView at an offset returns the whole buffer', () => {
+			const view = new DataView(new ArrayBuffer(12))
+			expect(toArray(osc.writeInt64(1n, view, 4))).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
+			expect(toArray(osc.writeInt64(2n, new DataView(new ArrayBuffer(8))))).toEqual([0, 0, 0, 0, 0, 0, 0, 2])
 		})
 	})
 })

@@ -8,29 +8,6 @@
 /** The OSC type tags that osc.js can read and write */
 export type OscArgumentType = 'i' | 'h' | 'f' | 's' | 'S' | 'b' | 't' | 'T' | 'F' | 'N' | 'I' | 'd' | 'c' | 'r' | 'm'
 
-/** A signed 64-bit integer, as read from an OSC int64 ("h") argument. This is an instance of `osc.Long`. */
-export interface Long {
-	readonly high: number
-	readonly low: number
-	readonly unsigned: boolean
-	toString(radix?: number): string
-	toNumber(): number
-	equals(other: Long | number | string): boolean
-}
-
-/** Anything with the high and low 32 bits of a 64-bit integer, such as a Long, can be written as an int64 */
-export interface LongLike {
-	high: number
-	low: number
-}
-
-export interface LongConstructor {
-	new (low: number, high?: number, unsigned?: boolean): Long
-	fromNumber(value: number, unsigned?: boolean): Long
-	fromString(str: string, unsigned?: boolean, radix?: number): Long
-	isLong(obj: unknown): obj is Long
-}
-
 /**
  * An OSC time tag.
  *
@@ -63,7 +40,7 @@ export type OscBinaryInput = Uint8Array | ArrayBuffer | ArrayLike<number>
 /** The value of each type of OSC argument, as read */
 export interface OscArgumentValues {
 	i: number
-	h: Long
+	h: bigint
 	f: number
 	s: string
 	S: string
@@ -82,7 +59,7 @@ export interface OscArgumentValues {
 /** The value of each type of OSC argument, as accepted for writing */
 export interface OscArgumentInputValues {
 	i: number
-	h: LongLike
+	h: bigint | number
 	f: number
 	s: string
 	S: string
@@ -118,7 +95,7 @@ export type OscArgument = OscMetaArgument | OscArgument[]
  * An argument for writing.
  * With type metadata on, every argument must be typed. Without it, typed arguments are written as given, and the types
  * of other values are inferred: booleans as T/F, strings as s, numbers as f (float32), null/undefined as N, binary
- * data as b, and Long-like values as h.
+ * data as b, and bigints as h (int64).
  */
 export type OscArgumentInput =
 	| OscMetaArgumentInput
@@ -129,7 +106,7 @@ export type OscArgumentInput =
 	| undefined
 	| Uint8Array
 	| ArrayBuffer
-	| LongLike
+	| bigint
 	| OscArgumentInput[]
 
 /** An OSC message, as read */

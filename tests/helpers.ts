@@ -42,11 +42,10 @@ export function toArray(bytes: ArrayBufferLike | ArrayBufferView | ArrayLike<num
 
 /**
  * Recursively rounds every number in a decoded structure, so float32 values can be compared exactly.
- * Typed arrays and Long values are converted to plain arrays / strings so deep equality is straightforward.
+ * Typed arrays are converted to plain arrays so deep equality is straightforward.
  */
 export function normalise(value: unknown, decimals = 3): unknown {
 	if (typeof value === 'number') return parseFloat(value.toFixed(decimals))
-	if (value instanceof osc.Long) return `Long(${value.toString()})`
 	if (ArrayBuffer.isView(value)) return { bytes: toArray(value) }
 	if (Array.isArray(value)) return value.map((v) => normalise(v, decimals))
 	if (value && typeof value === 'object') {

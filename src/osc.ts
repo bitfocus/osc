@@ -7,12 +7,8 @@
  * Licensed under the MIT and GPL 3 licenses.
  */
 
-import LongImpl from 'long'
 import type {
 	DataCollection,
-	LongConstructor,
-	LongLike,
-	Long as LongType,
 	OffsetState,
 	OscArgument,
 	OscArgumentInput,
@@ -38,10 +34,6 @@ export const TWO_32 = 4294967296
 export const defaults: OscOptions = {
 	metadata: false,
 }
-
-// Unsupported, non-API member.
-export const Long = LongImpl as LongConstructor
-export type Long = LongType
 
 const textDecoder = new TextDecoder('utf-8')
 const textEncoder = new TextEncoder()
@@ -271,26 +263,34 @@ export function writeInt32(val: number, dv?: DataView, offset?: number): Uint8Ar
  * @param offsetState an offsetState object used to store the current offset index into dv
  * @return the number that was read
  */
-export function readInt64(dv: DataView, offsetState: OffsetState): LongType {
-	const high = readPrimitive(dv, 'getInt32', 4, offsetState)
-	const low = readPrimitive(dv, 'getInt32', 4, offsetState)
+export function readInt64(dv: DataView, offsetState: OffsetState): bigint {
+	const val = dv.getBigInt64(offsetState.idx, false)
+	offsetState.idx += 8
 
-	return new Long(low, high)
+	return val
 }
 
 /**
  * Writes an OSC int64 ("h") value.
  *
- * Known quirk: writing into a DataView throws, as each half returns the whole buffer.
- *
- * @param val the number to write
+ * @param val the number to write; a number must be an integer
  * @param dv a DataView instance to write the number into
  * @param offset an offset into dv
+ * @return the written bytes; when writing into dv, its whole buffer, like the other writers
  */
-export function writeInt64(val: LongLike, dv?: DataView, offset?: number): Uint8Array {
-	const arr = new Uint8Array(8)
-	arr.set(writePrimitive(val.high, dv, 'setInt32', 4, offset), 0)
-	arr.set(writePrimitive(val.low, dv, 'setInt32', 4, (offset as number) + 4), 4)
+export function writeInt64(val: bigint | number, dv?: DataView, offset?: number): Uint8Array {
+	offset = offset === undefined ? 0 : offset
+
+	let arr: Uint8Array
+	if (!dv) {
+		arr = new Uint8Array(8)
+		dv = new DataView(arr.buffer)
+	} else {
+		arr = new Uint8Array(dv.buffer as ArrayBuffer)
+	}
+
+	dv.setBigInt64(offset, BigInt(val), false)
+
 	return arr
 }
 
@@ -1042,6 +1042,8 @@ export function inferTypeForArgument(arg: unknown): OscArgumentType {
 			return 's'
 		case 'number':
 			return 'f'
+		case 'bigint':
+			return 'h'
 		case 'undefined':
 			return 'N'
 		case 'object':
@@ -1049,13 +1051,10 @@ export function inferTypeForArgument(arg: unknown): OscArgumentType {
 				return 'N'
 			} else if (arg instanceof Uint8Array || arg instanceof ArrayBuffer) {
 				return 'b'
-			} else if (typeof (arg as LongLike).high === 'number' && typeof (arg as LongLike).low === 'number') {
-				return 'h'
 			}
 			break
 	}
 
-	// Known quirk: for a bigint, JSON.stringify throws first
 	throw new Error("Can't infer OSC argument type for value: " + JSON.stringify(arg, null, 2))
 }
 

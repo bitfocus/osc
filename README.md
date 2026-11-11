@@ -7,6 +7,7 @@ This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/col
 
 * It is for Node.js only. The Web Socket, serial port and Chrome App transports have been removed, along with the browser builds, so it no longer depends on `ws`, `serialport`, `slip` (now inlined) or `wolfy87-eventemitter`. The core encoder/decoder still avoids Node-only APIs, so browser support can be added back as a separate entry point.
 * `osc.WebSocketPort`, `osc.SerialPort` and the environment flags (`osc.isNode`, `osc.isBufferEnv`, …) no longer exist.
+* 64-bit integer (`h`) arguments are read as `bigint`s, and written from `bigint`s (or integer numbers, when typed as `h`), rather than [Long](https://www.npmjs.com/package/long) objects, so it has no dependencies at all. As `JSON.stringify` can't serialise a `bigint`, received packets containing one can't be logged with it as they are.
 * Received arguments are always an array (upstream unpacked a lone argument out of it by default, as the `unpackSingleArgs` option, which is removed), and always have their types, as `{ type, value }` objects. Upstream only included the types when the `metadata` option was set, which now only affects writing.
 * It requires Node.js 26 or later.
 * It is written in TypeScript, with type declarations. Everything is available as a named export, and on the default export, which is shaped like the `osc` object of osc.js:
