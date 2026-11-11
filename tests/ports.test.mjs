@@ -25,6 +25,13 @@ describe('Port', () => {
 		expect(port.options).toEqual({})
 	})
 
+	test('a Port on its own has no transport, so open and sendRaw throw', () => {
+		const port = new osc.Port()
+		expect(() => port.open()).toThrow('open is not implemented by this Port')
+		expect(() => port.sendRaw(new Uint8Array(0))).toThrow('sendRaw is not implemented by this Port')
+		expect(() => port.send(message)).toThrow('sendRaw is not implemented by this Port')
+	})
+
 	test('send encodes the packet and passes it to sendRaw as a Buffer, with any extra arguments', () => {
 		const port = mockPort()
 		port.send(message, '10.0.0.1', 9000)

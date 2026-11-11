@@ -3,3 +3,4 @@ coverage
 .yarn/*
 !.yarn/patches
 !.yarn/releases
+dist

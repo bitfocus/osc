@@ -7,6 +7,15 @@ This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/col
 
 * It is for Node.js only. The Web Socket, serial port and Chrome App transports have been removed, along with the browser builds, so it no longer depends on `ws`, `serialport`, `slip` (now inlined) or `wolfy87-eventemitter`. The core encoder/decoder still avoids Node-only APIs, so browser support can be added back as a separate entry point.
 * `osc.WebSocketPort`, `osc.SerialPort` and the environment flags (`osc.isNode`, `osc.isBufferEnv`, …) no longer exist.
+* It is written in TypeScript, and published as an ES module with type declarations. Everything is available as a named export, and on the default export, which is shaped like the `osc` object of osc.js:
+
+  ```javascript
+  import osc from "@companion-app/osc"; // or: import { UDPPort, readPacket } from "@companion-app/osc";
+  ```
+
+  From CommonJS, on Node.js 22.12 or later, use `require("@companion-app/osc").default`.
+* Transports are classes, so a custom transport extends them with `class ... extends osc.Port`, rather than calling `osc.Port.call(this)`.
+* The library calls its own functions directly, so replacing a function on the exported object no longer changes the library's behaviour.
 
 What Does it Do?
 ----------------
@@ -253,7 +262,7 @@ This fork only includes UDP and TCP, but the transports it removed (Web Sockets,
 The subclass implements <code>sendRaw(encoded)</code> to write the encoded bytes to the underlying connection, emits <code>data</code> (with the received bytes, and optionally some packet info) for each chunk it receives, and emits <code>ready</code>, <code>close</code> and <code>error</code> as appropriate. Encoding, decoding, SLIP framing and the <code>osc</code>, <code>message</code>, <code>bundle</code> and <code>raw</code> events are all handled by the base class. It will usually also implement <code>open()</code> and <code>close()</code>.
 
 ```javascript
-const osc = require("@companion-app/osc");
+import osc from "@companion-app/osc";
 
 class SerialOSCPort extends osc.SLIPPort {
     constructor(options) {
@@ -508,11 +517,13 @@ Contributions and pull requests to osc.js are hugely appreciated. Wherever possi
 
 ## How to Test Your Contributions
 
-This project uses [Yarn](https://yarnpkg.com) (via Corepack) and [Vitest](https://vitest.dev). To fetch the dependencies and run the tests:
+This project uses [Yarn](https://yarnpkg.com) (via Corepack), [TypeScript](https://www.typescriptlang.org) and [Vitest](https://vitest.dev). To fetch the dependencies and run the tests:
 
     corepack enable
     yarn install
     yarn test
+
+`yarn check-types` type-checks the sources and tests, `yarn lint` checks the formatting (`yarn format` fixes it), and `yarn build` compiles to `dist`.
 
 `yarn test:coverage` also checks coverage, which must stay at 100%. Behaviour inherited from upstream that is surprising or buggy is pinned by tests named `known quirk: …`, so that changing it is a deliberate decision.
 

@@ -1,13 +1,7 @@
-import { createRequire } from 'node:module'
+import osc from '../src/index.ts'
+import * as slip from '../src/slip.ts'
 
-// The sources are CommonJS, so they are loaded through Node's own require (as a consumer would load them), rather
-// than through Vitest's module runner. This keeps a single instance of each module, and accurate V8 coverage.
-const require = createRequire(import.meta.url)
-
-export const osc = require('../src/index.js')
-
-// slip.js isn't part of the public API, but is tested directly
-export const slip = require('../src/slip.js')
+export { osc, slip }
 
 /** Builds a DataView over the char codes of a (latin1) string */
 export function stringToDataView(str) {
