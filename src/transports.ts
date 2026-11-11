@@ -58,7 +58,7 @@ export function firePacketEvents<TInfo>(
 	port: Port<TInfo>,
 	packet: OscPacket,
 	timeTag: ReadTimeTag | undefined,
-	packetInfo: TInfo | undefined,
+	packetInfo: TInfo | undefined
 ): void {
 	if ((packet as OscMessage).address) {
 		port.emit('message', packet as OscMessage, timeTag, packetInfo)
@@ -72,7 +72,7 @@ export function fireBundleEvents<TInfo>(
 	port: Port<TInfo>,
 	bundle: OscBundle,
 	timeTag: ReadTimeTag | undefined,
-	packetInfo: TInfo | undefined,
+	packetInfo: TInfo | undefined
 ): void {
 	port.emit('bundle', bundle, timeTag, packetInfo)
 	for (let i = 0; i < bundle.packets.length; i++) {
@@ -259,7 +259,7 @@ export function relay(
 	eventName?: string,
 	sendFnName?: string,
 	transformFn?: (data: any) => unknown,
-	sendArgs?: any[],
+	sendArgs?: any[]
 ): RelaySpec {
 	eventName = eventName || 'message'
 	const sendFn = sendFnName || 'send'
@@ -284,7 +284,7 @@ export function relay(
 export function relayPorts(
 	from: RelaySource,
 	to: any,
-	o: { raw?: boolean; transform?: (data: any) => unknown },
+	o: { raw?: boolean; transform?: (data: any) => unknown }
 ): RelaySpec {
 	const eventName = o.raw ? 'raw' : 'osc'
 	const sendFnName = o.raw ? 'sendRaw' : 'send'

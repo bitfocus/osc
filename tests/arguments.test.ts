@@ -6,7 +6,7 @@ import { dv, normalise, osc, oscString, toArray, untypedOsc } from './helpers.js
 type TypeTags = Array<string | TypeTags>
 function typed(args: unknown[], typeTags: TypeTags): any[] {
 	return args.map((arg, i) =>
-		Array.isArray(arg) ? typed(arg, typeTags[i] as TypeTags) : { type: typeTags[i], value: arg },
+		Array.isArray(arg) ? typed(arg, typeTags[i] as TypeTags) : { type: typeTags[i], value: arg }
 	)
 }
 
@@ -127,19 +127,19 @@ describe('readArguments', () => {
 
 	test('throws for a type tag string without a leading comma', () => {
 		expect(() => osc.readArguments(dv([...oscString('if'), 0, 0, 0, 1]), {}, { idx: 0 })).toThrow(
-			'A malformed type tag string was found while reading the arguments of an OSC message. String was: if',
+			'A malformed type tag string was found while reading the arguments of an OSC message. String was: if'
 		)
 	})
 
 	test('throws for an unknown type tag', () => {
 		expect(() => osc.readArguments(dv([...oscString(',ix'), 0, 0, 0, 1]), {}, { idx: 0 })).toThrow(
-			"'x' is not a valid OSC type tag. Type tag string was: ,ix",
+			"'x' is not a valid OSC type tag. Type tag string was: ,ix"
 		)
 	})
 
 	test('throws for an array that is never closed', () => {
 		expect(() => osc.readArguments(dv(oscString(',[ii')), {}, { idx: 0 })).toThrow(
-			"an open array type tag ('[') was found without a matching close array tag",
+			"an open array type tag ('[') was found without a matching close array tag"
 		)
 	})
 
@@ -147,7 +147,7 @@ describe('readArguments', () => {
 		const written = osc.writeArguments([[1, [2]]], {})
 		expect(toArray(written).slice(0, 8)).toEqual(oscString(',[f[f]]'))
 		expect(() => osc.readArguments(new DataView(written.buffer), {}, { idx: 0 })).toThrow(
-			"an open array type tag ('[') was found without a matching close array tag",
+			"an open array type tag ('[') was found without a matching close array tag"
 		)
 	})
 })
@@ -172,7 +172,7 @@ describe('writeArguments', () => {
 				{ type: 'N', value: null },
 				{ type: 'I', value: 1 },
 			],
-			{ metadata: true },
+			{ metadata: true }
 		)
 		expect(toArray(actual)).toEqual(oscString(',TFNI'))
 	})

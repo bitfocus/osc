@@ -10,9 +10,9 @@
 import LongImpl from 'long'
 import type {
 	DataCollection,
-	Long as LongType,
 	LongConstructor,
 	LongLike,
+	Long as LongType,
 	OffsetState,
 	OscArgument,
 	OscArgumentInput,
@@ -133,7 +133,7 @@ export function nativeBuffer(obj: ByteSource): Buffer {
 export function copyByteArray<T extends Uint8Array | number[]>(
 	source: Uint8Array | ArrayLike<number>,
 	target: T,
-	offset?: number,
+	offset?: number
 ): T {
 	if (isTypedArrayView(source) && isTypedArrayView(target)) {
 		target.set(source, offset)
@@ -211,7 +211,7 @@ export function readPrimitive(
 	dv: DataView,
 	readerName: DataViewGetter,
 	numBytes: number,
-	offsetState: OffsetState,
+	offsetState: OffsetState
 ): number {
 	const val = dv[readerName](offsetState.idx, false)
 	offsetState.idx += numBytes
@@ -225,7 +225,7 @@ export function writePrimitive(
 	dv: DataView | undefined,
 	writerName: DataViewSetter,
 	numBytes: number,
-	offset?: number,
+	offset?: number
 ): Uint8Array {
 	offset = offset === undefined ? 0 : offset
 
@@ -640,7 +640,7 @@ export function readArguments(dv: DataView, options: OscOptions, offsetState: Of
 		throw new Error(
 			'A malformed type tag string was found while reading ' +
 				'the arguments of an OSC message. String was: ' +
-				typeTagString,
+				typeTagString
 		)
 	}
 
@@ -658,7 +658,7 @@ export function readArgument(
 	typeTagString: string,
 	dv: DataView,
 	options: OscOptions,
-	offsetState: OffsetState,
+	offsetState: OffsetState
 ): OscArgument {
 	const typeSpec = argumentTypes[argType as OscArgumentType] as ArgumentTypeSpec | undefined
 	if (!typeSpec) {
@@ -684,7 +684,7 @@ export function readArgumentsIntoArray(
 	typeTagString: string,
 	dv: DataView,
 	options: OscOptions,
-	offsetState: OffsetState,
+	offsetState: OffsetState
 ): OscArgument[] {
 	let i = 0
 
@@ -701,7 +701,7 @@ export function readArgumentsIntoArray(
 				throw new Error(
 					"Invalid argument type tag: an open array type tag ('[') was found " +
 						"without a matching close array tag ('[]'). Type tag was: " +
-						typeTagString,
+						typeTagString
 				)
 			}
 
@@ -792,7 +792,7 @@ export function writeArgument(arg: OscArgumentInput, dataCollection: DataCollect
 export function collectArguments(
 	args: OscArgumentInput | OscArgumentInput[] | undefined,
 	options: OscOptions,
-	dataCollection?: DataCollection,
+	dataCollection?: DataCollection
 ): DataCollection {
 	let argList: OscArgumentInput[] = isArray(args) ? args : typeof args === 'undefined' ? [] : [args as OscArgumentInput]
 
@@ -847,7 +847,7 @@ export function readMessageContents(
 	address: string,
 	dv: DataView,
 	options: OscOptions,
-	offsetState: OffsetState,
+	offsetState: OffsetState
 ): OscMessage {
 	if (address.indexOf('/') !== 0) {
 		throw new Error('A malformed OSC address was found while reading ' + 'an OSC message. String was: ' + address)
@@ -865,7 +865,7 @@ export function readMessageContents(
 export function collectMessageParts(
 	msg: OscMessageInput,
 	options: OscOptions,
-	dataCollection?: DataCollection,
+	dataCollection?: DataCollection
 ): DataCollection {
 	dataCollection = dataCollection || {
 		byteLength: 0,
@@ -915,7 +915,7 @@ export function readBundle(dv: ByteSource, options: OscOptions, offsetState?: Of
 export function collectBundlePackets(
 	bundle: OscBundleInput,
 	options: OscOptions,
-	dataCollection?: DataCollection,
+	dataCollection?: DataCollection
 ): DataCollection {
 	dataCollection = dataCollection || {
 		byteLength: 0,
@@ -951,7 +951,7 @@ export function writeBundle(bundle: OscBundleInput, options?: OscOptions): Uint8
 		throw new Error(
 			"An OSC bundle must contain 'timeTag' and 'packets' properties. " +
 				'Bundle was: ' +
-				JSON.stringify(bundle, null, 2),
+				JSON.stringify(bundle, null, 2)
 		)
 	}
 
@@ -973,7 +973,7 @@ export function readBundleContents(
 	dv: DataView,
 	options: OscOptions,
 	offsetState: OffsetState,
-	len: number,
+	len: number
 ): OscBundle {
 	const timeTag = readTimeTag(dv, offsetState)
 	const packets: OscPacket[] = []
@@ -1019,7 +1019,7 @@ export function readPacket(data: ByteSource, options: OscOptions, offsetState?: 
 		return readMessageContents(header, dv, options, offsetState)
 	} else {
 		throw new Error(
-			"The header of an OSC packet didn't contain an OSC address or a #bundle string." + ' Header was: ' + header,
+			"The header of an OSC packet didn't contain an OSC address or a #bundle string." + ' Header was: ' + header
 		)
 	}
 }
@@ -1040,7 +1040,7 @@ export function writePacket(packet: OscPacketInput, options?: OscOptions): Uint8
 		throw new Error(
 			'The specified packet was not recognized as a valid OSC message or bundle.' +
 				' Packet was: ' +
-				JSON.stringify(packet, null, 2),
+				JSON.stringify(packet, null, 2)
 		)
 	}
 }

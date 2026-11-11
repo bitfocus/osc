@@ -89,7 +89,7 @@ describe('UDPPort', () => {
 		sender.send(
 			{ address: '/sl/1/down', args: [{ type: 'f', value: 444.4 }] },
 			'127.0.0.1',
-			receiver.socket!.address().port,
+			receiver.socket!.address().port
 		)
 		const [msg] = await received
 

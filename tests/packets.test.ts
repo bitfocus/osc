@@ -145,7 +145,7 @@ describe('Messages', () => {
 	test('readMessage throws for an address without a leading slash', () => {
 		const bytes = [...oscString('foo'), ...oscString(',')]
 		expect(() => osc.readMessage(new Uint8Array(bytes))).toThrow(
-			'A malformed OSC address was found while reading an OSC message. String was: foo',
+			'A malformed OSC address was found while reading an OSC message. String was: foo'
 		)
 	})
 
@@ -277,7 +277,7 @@ describe('Packets', () => {
 
 	test('readPacket throws for a packet that is neither a message nor a bundle', () => {
 		expect(() => osc.readPacket(new Uint8Array(oscString('foo')), {})).toThrow(
-			"The header of an OSC packet didn't contain an OSC address or a #bundle string. Header was: foo",
+			"The header of an OSC packet didn't contain an OSC address or a #bundle string. Header was: foo"
 		)
 	})
 
@@ -299,7 +299,7 @@ describe('Packets', () => {
 
 	test('writePacket throws for something that is neither a message nor a bundle', () => {
 		expect(() => untypedOsc.writePacket({ foo: 1 })).toThrow(
-			'The specified packet was not recognized as a valid OSC message or bundle',
+			'The specified packet was not recognized as a valid OSC message or bundle'
 		)
 	})
 

@@ -6,10 +6,10 @@ import {
 	float64,
 	int32,
 	numbersToDataView,
+	osc,
 	oscString,
 	stringToDataView,
 	toArray,
-	osc,
 	untypedOsc,
 } from './helpers.js'
 

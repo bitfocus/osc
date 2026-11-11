@@ -44,7 +44,7 @@ describe('Port', () => {
 		const port = mockPort({ metadata: true })
 		port.send({ address: '/a', args: [{ type: 'i', value: 1 }] })
 		expect(toArray(port.sendRaw.mock.calls[0][0])).toEqual(
-			toArray(osc.writePacket({ address: '/a', args: [{ type: 'i', value: 1 }] }, { metadata: true })),
+			toArray(osc.writePacket({ address: '/a', args: [{ type: 'i', value: 1 }] }, { metadata: true }))
 		)
 	})
 

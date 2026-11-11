@@ -100,7 +100,7 @@ describe('slip.Decoder', () => {
 		expect(onError).toHaveBeenCalledTimes(1)
 		expect(onError.mock.calls[0][0]).toBeInstanceOf(Uint8Array)
 		expect(onError.mock.calls[0][1]).toBe(
-			'The message is too large; the maximum message size is 0.00390625KB. Use a larger maxMessageSize if necessary.',
+			'The message is too large; the maximum message size is 0.00390625KB. Use a larger maxMessageSize if necessary.'
 		)
 		expect(onMessage).not.toHaveBeenCalled()
 	})

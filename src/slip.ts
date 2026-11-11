@@ -174,7 +174,7 @@ export class Decoder {
 				this.msgBuffer.subarray(0),
 				'The message is too large; the maximum message size is ' +
 					this.maxMessageSize / 1024 +
-					'KB. Use a larger maxMessageSize if necessary.',
+					'KB. Use a larger maxMessageSize if necessary.'
 			)
 		}
 
