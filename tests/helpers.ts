@@ -87,7 +87,7 @@ export function float64(n: number): number[] {
 }
 
 /** Waits for the first emission of an event, resolving with its arguments */
-export function nextEvent(emitter: Pick<EventEmitter, 'once'>, event: string): Promise<any[]> {
+export async function nextEvent(emitter: Pick<EventEmitter, 'once'>, event: string): Promise<any[]> {
 	return new Promise((resolve) => {
 		emitter.once(event, (...args: any[]) => resolve(args))
 	})

@@ -132,7 +132,8 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 		const length =
 			(encoded as Uint8Array).byteLength !== undefined ? (encoded as Uint8Array).byteLength : encoded.length
 
-		address = address || (this.options.remoteAddress as string)
+		// The constructor always sets a remote address
+		address = address || this.options.remoteAddress!
 		port = port !== undefined ? port : this.options.remotePort
 
 		// A dual-stack udp6 socket reaches IPv4 hosts at their IPv4-mapped IPv6 addresses

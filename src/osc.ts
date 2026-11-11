@@ -113,7 +113,7 @@ export function byteArray(obj: ByteSource): Uint8Array {
 		throw new Error("Can't wrap a non-array-like object as Uint8Array. Object was: " + describeValue(obj))
 	}
 
-	return new Uint8Array(obj as ArrayBuffer | ArrayLike<number>)
+	return new Uint8Array(obj)
 }
 
 /**
@@ -809,7 +809,7 @@ export function collectArguments(
 	options: OscOptions,
 	dataCollection?: DataCollection
 ): DataCollection {
-	let argList: OscArgumentInput[] = isArray(args) ? args : typeof args === 'undefined' ? [] : [args as OscArgumentInput]
+	let argList: OscArgumentInput[] = isArray(args) ? args : typeof args === 'undefined' ? [] : [args]
 
 	dataCollection = dataCollection || {
 		byteLength: 0,

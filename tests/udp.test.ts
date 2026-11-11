@@ -280,20 +280,20 @@ describe('UDPPort', () => {
 	describe('setupMulticast', () => {
 		test('does nothing without multicast options', () => {
 			const port = { options: {}, socket: fakeSocket() }
-			osc.UDPPort.setupMulticast(port as any)
+			osc.UDPPort.setupMulticast(port)
 			expect(port.socket.setMulticastTTL).not.toHaveBeenCalled()
 			expect(port.socket.addMembership).not.toHaveBeenCalled()
 		})
 
 		test('sets the TTL, including 0', () => {
 			const port = { options: { multicastTTL: 0 }, socket: fakeSocket() }
-			osc.UDPPort.setupMulticast(port as any)
+			osc.UDPPort.setupMulticast(port)
 			expect(port.socket.setMulticastTTL).toHaveBeenCalledWith(0)
 		})
 
 		test('joins a single group given as a string', () => {
 			const port = { options: { multicastMembership: '239.255.255.250' }, socket: fakeSocket() }
-			osc.UDPPort.setupMulticast(port as any)
+			osc.UDPPort.setupMulticast(port)
 			expect(port.socket.addMembership).toHaveBeenCalledWith('239.255.255.250')
 			expect(port.options.multicastMembership).toEqual(['239.255.255.250'])
 		})
@@ -303,7 +303,7 @@ describe('UDPPort', () => {
 				options: { multicastMembership: ['239.0.0.1', { address: '239.0.0.2', interface: '10.0.0.5' }] },
 				socket: fakeSocket(),
 			}
-			osc.UDPPort.setupMulticast(port as any)
+			osc.UDPPort.setupMulticast(port)
 			expect(port.socket.addMembership.mock.calls).toEqual([['239.0.0.1'], ['239.0.0.2', '10.0.0.5']])
 		})
 

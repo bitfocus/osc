@@ -122,7 +122,7 @@ describe('Numbers', () => {
 		expect(offsetState.idx).toBe(offset + 4)
 	})
 
-	const floats = new Float32Array([42.42, 0.00001, 10000000000.00000001, 27])
+	const floats = new Float32Array([42.42, 0.00001, 10000000000, 27])
 	test.each([
 		{ offset: 0, expected: 42.42 },
 		{ offset: 4, expected: 0.00001 },

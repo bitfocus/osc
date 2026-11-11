@@ -536,7 +536,7 @@ This project uses [Yarn](https://yarnpkg.com) (via Corepack), [TypeScript](https
     yarn install
     yarn test
 
-`yarn check-types` type-checks the sources and tests, `yarn lint` checks the formatting (`yarn format` fixes it), and `yarn build` compiles to `dist`.
+`yarn check-types` type-checks the sources and tests, `yarn lint` runs ESLint and checks the formatting (`yarn format` fixes the formatting), and `yarn build` compiles to `dist`.
 
 `yarn test:coverage` also checks coverage, which must stay at 100%.
 

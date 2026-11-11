@@ -235,7 +235,7 @@ export interface RelaySpec {
 // Unsupported, non-API function.
 export function relay(
 	from: RelaySource,
-	to: any,
+	to: object,
 	eventName?: string,
 	sendFnName?: string,
 	transformFn?: (data: any) => unknown,
@@ -247,7 +247,7 @@ export function relay(
 
 	const listener = function (data: any) {
 		args[0] = transformFn ? transformFn(data) : data
-		to[sendFn](...args)
+		;(to as Record<string, (...args: unknown[]) => void>)[sendFn](...args)
 	}
 
 	from.on(eventName, listener)
@@ -261,7 +261,7 @@ export function relay(
 // Unsupported, non-API function.
 export function relayPorts(
 	from: RelaySource,
-	to: any,
+	to: object,
 	o: { raw?: boolean; transform?: (data: any) => unknown }
 ): RelaySpec {
 	const eventName = o.raw ? 'raw' : 'osc'
