@@ -29,10 +29,9 @@ export interface PortEvents<TInfo = unknown> {
 	/** The underlying connection has closed. TCP passes whether this was due to an error. */
 	close: [hadError?: boolean]
 	/**
-	 * Something went wrong. This is usually an Error; sending on a closed port reports a string, and an oversized SLIP
-	 * message reports the partial message buffer (a known quirk).
+	 * Something went wrong. This is usually an Error; sending on a closed port reports a string.
 	 */
-	error: [error: Error | string | Uint8Array]
+	error: [error: Error | string]
 	/** Raw data received by the transport, to be decoded. Transports emit this. */
 	data: [data: ByteSource, info: TInfo | undefined]
 	/** The bytes of each packet received */
@@ -168,11 +167,7 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 }
 
 export interface SLIPPortOptions extends PortOptions {
-	/**
-	 * Whether to decode received data as SLIP framed packets. Defaults to true.
-	 *
-	 * Known quirk: this only affects receiving; packets are always sent SLIP framed.
-	 */
+	/** Whether packets are SLIP framed, both those sent and those received. Defaults to true. */
 	useSLIP?: boolean
 }
 
@@ -184,6 +179,8 @@ export class SLIPPort<TInfo = unknown> extends Port<TInfo> {
 	declare options: SLIPPortOptions
 	decoder: slip.Decoder
 	readonly #decodeHandler: (data: ByteSource, packetInfo: TInfo | undefined) => void
+	// The packet info of the data being fed to the decoder, for the messages it completes
+	#slipPacketInfo: TInfo | undefined
 
 	constructor(options?: SLIPPortOptions) {
 		super(options)
@@ -191,10 +188,9 @@ export class SLIPPort<TInfo = unknown> extends Port<TInfo> {
 		o.useSLIP = o.useSLIP === undefined ? true : o.useSLIP
 
 		this.decoder = new slip.Decoder({
-			onMessage: (msg) => this.decodeOSC(msg),
-			onError: (err) => {
-				// Known quirk: this emits the partial message buffer, not an Error
-				this.emit('error', err)
+			onMessage: (msg) => this.decodeOSC(msg, this.#slipPacketInfo),
+			onError: (_msgBuffer, message) => {
+				this.emit('error', new Error(message))
 			},
 		})
 
@@ -215,7 +211,7 @@ export class SLIPPort<TInfo = unknown> extends Port<TInfo> {
 
 		try {
 			const encoded = writePacket(packet, this.options)
-			framed = slip.encode(encoded)
+			framed = this.options.useSLIP ? slip.encode(encoded) : encoded
 		} catch (err) {
 			this.emit('error', err as Error)
 		}
@@ -224,12 +220,15 @@ export class SLIPPort<TInfo = unknown> extends Port<TInfo> {
 	}
 
 	/**
-	 * Feeds received data to the SLIP decoder.
-	 *
-	 * Known quirk: the packet info is not passed through, so messages decoded from SLIP data have none.
+	 * Feeds received data to the SLIP decoder. Messages it completes are given this data's packet info.
 	 */
-	decodeSLIPData(data: ByteSource, _packetInfo?: TInfo): void {
-		this.decoder.decode(data as ArrayBuffer | ArrayLike<number>)
+	decodeSLIPData(data: ByteSource, packetInfo?: TInfo): void {
+		this.#slipPacketInfo = packetInfo
+		try {
+			this.decoder.decode(data as ArrayBuffer | ArrayLike<number>)
+		} finally {
+			this.#slipPacketInfo = undefined
+		}
 	}
 }
 

@@ -122,17 +122,17 @@ describe('TCPSocketPort', () => {
 		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
-	test('known quirk: with useSLIP: false, packets are still sent SLIP framed', async () => {
+	test('with useSLIP: false on both ends, sends and receives unframed packets', async () => {
 		const { server, port } = await startServer({ useSLIP: false })
 		const connection = nextEvent(server, 'oscConnection')
 		const client = await connectClient(port, { useSLIP: false })
 		const [serverPort] = await connection
 
 		const raw = nextEvent(serverPort, 'raw')
-		const error = nextEvent(serverPort, 'error')
+		const received = nextEvent(serverPort, 'message')
 		client.send(message)
-		expect(toArray((await raw)[0])).toEqual(toArray(slip.encode(osc.writePacket(message))))
-		expect((await error)[0].message).toContain("packet didn't contain an OSC address or a #bundle string")
+		expect(toArray((await raw)[0])).toEqual(toArray(osc.writePacket(message)))
+		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
 	test('open connects to the address and port given to open', async () => {

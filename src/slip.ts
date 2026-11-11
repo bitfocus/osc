@@ -83,11 +83,7 @@ export function encode(data: ArrayBuffer | ArrayLike<number>, o?: EncodeOptions)
 export interface DecoderOptions {
 	/** Called with each message once it has been fully decoded */
 	onMessage?: (msg: Uint8Array) => void
-	/**
-	 * Called when a message exceeds maxMessageSize, with the partial message buffer and a description.
-	 *
-	 * Known quirk: once the buffer has grown to maxMessageSize, every later byte is reported as too large.
-	 */
+	/** Called when a message exceeds maxMessageSize (and is discarded), with the partial message and a description */
 	onError?: (msgBuffer: Uint8Array, message: string) => void
 	/** The maximum size of an incoming message. Defaults to 10MB. */
 	maxMessageSize?: number
@@ -106,6 +102,8 @@ export class Decoder {
 	onMessage: DecoderOptions['onMessage']
 	onError: DecoderOptions['onError']
 	escape: boolean
+	/** Whether the rest of an oversized message is being skipped, up to the END that finishes it */
+	discarding: boolean
 
 	/**
 	 * @param o decoder options, or an onMessage callback
@@ -125,6 +123,7 @@ export class Decoder {
 		this.onMessage = options.onMessage
 		this.onError = options.onError
 		this.escape = false
+		this.discarding = false
 	}
 
 	/**
@@ -154,9 +153,19 @@ export class Decoder {
 				}
 
 				if (val === END) {
-					msg = this.handleEnd()
+					if (this.discarding) {
+						// The end of the oversized message; the next one starts afresh
+						this.discarding = false
+					} else {
+						msg = this.handleEnd()
+					}
 					continue
 				}
+			}
+
+			if (this.discarding) {
+				this.escape = false
+				continue
 			}
 
 			const more = this.addByte(val)
@@ -171,16 +180,19 @@ export class Decoder {
 	handleMessageMaxError(): void {
 		if (this.onError) {
 			this.onError(
-				this.msgBuffer.subarray(0),
+				this.msgBuffer.subarray(0, this.msgBufferIdx),
 				'The message is too large; the maximum message size is ' +
 					this.maxMessageSize / 1024 +
 					'KB. Use a larger maxMessageSize if necessary.'
 			)
 		}
 
-		// Reset everything and carry on.
+		// Discard the rest of this message, and start the next one in a buffer of the initial size, so that later
+		// messages aren't also too large.
+		this.msgBuffer = new Uint8Array(this.bufferSize)
 		this.msgBufferIdx = 0
 		this.escape = false
+		this.discarding = true
 	}
 
 	// Unsupported, non-API method.

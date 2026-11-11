@@ -224,12 +224,14 @@ describe('SLIPPort', () => {
 		expect(onMessage.mock.calls[0][0]).toEqual(receivedMessage)
 	})
 
-	test('known quirk: messages decoded from SLIP data have no packet info', () => {
+	test('messages decoded from SLIP data have the packet info of the data that completed them', () => {
 		const port = new osc.SLIPPort()
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
-		port.decodeSLIPData(slip.encode(encodedMessage), 'info')
-		expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, undefined)
+		const framed = toArray(slip.encode(encodedMessage))
+		port.decodeSLIPData(new Uint8Array(framed.slice(0, 5)), 'first')
+		port.decodeSLIPData(new Uint8Array(framed.slice(5)), 'second')
+		expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, 'second')
 	})
 
 	test('with useSLIP: false, decodes unframed data', () => {
@@ -241,7 +243,7 @@ describe('SLIPPort', () => {
 		expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, 'info')
 	})
 
-	test('known quirk: a SLIP decoder error is emitted as the partial message buffer, not an Error', () => {
+	test('a SLIP decoder error is emitted as an Error', () => {
 		const port = new osc.SLIPPort()
 		port.decoder.maxMessageSize = 4
 		port.decoder.msgBuffer = new Uint8Array(2)
@@ -249,7 +251,14 @@ describe('SLIPPort', () => {
 		port.on('error', onError)
 		port.emit('data', new Uint8Array([slip.END, 1, 2, 3]), undefined)
 		expect(onError).toHaveBeenCalledTimes(1)
-		expect(onError.mock.calls[0][0]).toBeInstanceOf(Uint8Array)
+		expect(onError.mock.calls[0][0]).toBeInstanceOf(Error)
+		expect(onError.mock.calls[0][0].message).toContain('The message is too large')
+	})
+
+	test('with useSLIP: false, sends unframed packets', () => {
+		const port = mockSLIPPort({ useSLIP: false })
+		port.send(message)
+		expect(toArray(port.sendRaw.mock.calls[0][0])).toEqual(encodedMessage)
 	})
 })
 

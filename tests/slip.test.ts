@@ -98,25 +98,28 @@ describe('slip.Decoder', () => {
 
 		decoder.decode([END, 1, 2, 3])
 		expect(onError).toHaveBeenCalledTimes(1)
-		expect(onError.mock.calls[0][0]).toBeInstanceOf(Uint8Array)
+		expect(toArray(onError.mock.calls[0][0])).toEqual([1, 2, 3])
 		expect(onError.mock.calls[0][1]).toBe(
 			'The message is too large; the maximum message size is 0.00390625KB. Use a larger maxMessageSize if necessary.'
 		)
 		expect(onMessage).not.toHaveBeenCalled()
 	})
 
-	test('known quirk: once the buffer has grown to maxMessageSize, every later byte is reported as too large', () => {
+	test('skips the rest of an oversized message, then decodes the next normally', () => {
 		const onError = vi.fn()
 		const onMessage = vi.fn()
 		const decoder = new slip.Decoder({ onMessage, onError, bufferSize: 2, maxMessageSize: 4 })
 
-		decoder.decode([END, 1, 2, 3, END])
+		// The rest of the oversized message, including an escaped END, is skipped rather than delivered
+		decoder.decode([END, 1, 2, 3, 4, ESC, ESC_END, 5, END])
 		expect(onError).toHaveBeenCalledTimes(1)
-
-		// A small, valid message is no longer delivered
-		decoder.decode([END, 9, END])
-		expect(onError).toHaveBeenCalledTimes(2)
 		expect(onMessage).not.toHaveBeenCalled()
+
+		decoder.decode([END, 9, END])
+		expect(onError).toHaveBeenCalledTimes(1)
+		expect(onMessage).toHaveBeenCalledTimes(1)
+		expect(toArray(onMessage.mock.calls[0][0])).toEqual([9])
+		expect(decoder.msgBuffer).toHaveLength(2)
 	})
 
 	test('discards oversized messages without an onError callback', () => {
