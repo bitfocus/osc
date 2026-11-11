@@ -405,13 +405,13 @@ describe('Time tags', () => {
 			expect(osc.timeTag(0, time)).toEqual({ raw: osc.jsToNTPTime(time) })
 		})
 
-		test('known quirk: a "now" of 0 is ignored in favour of Date.now()', () => {
+		test('relative to a "now" of 0 (the epoch)', () => {
 			vi.useFakeTimers({ now: 5000 })
-			expect(osc.timeTag(0, 0)).toEqual({ raw: osc.jsToNTPTime(5000) })
+			expect(osc.timeTag(0, 0)).toEqual({ raw: [osc.SECS_70YRS, 0] })
 		})
 
-		test('known quirk: fractions summing to exactly one second are not carried over', () => {
-			expect(osc.timeTag(0.5, 500)).toEqual({ raw: [osc.SECS_70YRS, osc.TWO_32] })
+		test('carries fractions summing to exactly one second over into the seconds', () => {
+			expect(osc.timeTag(0.5, 500)).toEqual({ raw: [osc.SECS_70YRS + 1, 0] })
 		})
 	})
 })

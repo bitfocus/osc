@@ -543,16 +543,13 @@ export function writeTimeTag(timeTag: TimeTag): Uint8Array {
  * Produces a time tag containing a raw NTP timestamp
  * relative to now by the specified number of seconds.
  *
- * Known quirks: a `now` of 0 is replaced with Date.now(), and fractions of a second that sum to exactly one second
- * are not carried over into the seconds.
- *
  * @param secs the number of seconds relative to now (i.e. + for the future, - for the past)
  * @param now the number of milliseconds since epoch to use as the current time. Defaults to Date.now()
  * @return the time tag
  */
 export function timeTag(secs?: number, now?: number): { raw: [number, number] } {
-	secs = secs || 0
-	now = now || Date.now()
+	secs = secs ?? 0
+	now = now ?? Date.now()
 
 	const nowSecs = now / 1000
 	const nowWhole = Math.floor(nowSecs)
@@ -561,7 +558,7 @@ export function timeTag(secs?: number, now?: number): { raw: [number, number] } 
 	const secsFracs = secs - secsWhole
 	let fracs = nowFracs + secsFracs
 
-	if (fracs > 1) {
+	if (fracs >= 1) {
 		const fracsWhole = Math.floor(fracs)
 		const fracsFracs = fracs - fracsWhole
 
