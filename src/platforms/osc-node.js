@@ -30,12 +30,9 @@
 
     var dgram = require("dgram"),
         net = require("net"),
-        WebSocket = require("ws"),
         modules = [
             require("../osc.js"),
-            require("../osc-transports.js"),
-            require("./osc-websocket-client.js"),
-            require("./osc-node-serialport-loader.js")
+            require("../osc-transports.js")
         ],
         osc = shallowMerge({}, modules);
 
