@@ -3,7 +3,7 @@ osc.js
 
 osc.js is a library for reading and writing [Open Sound Control](http://opensoundcontrol.org) messages in JavaScript.
 
-This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/colinbdclark/osc.js) by [Colin Clark](https://colinclark.org), maintained for use in [Companion](https://github.com/bitfocus/companion) and its modules. It differs from upstream osc.js 2.4.5 in that:
+This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/colinbdclark/osc.js) by [Colin Clark](https://colinclark.org), maintained for use in [Companion](https://github.com/bitfocus/companion) and its modules, and published as [`@companion-app/osc`](https://www.npmjs.com/package/@companion-app/osc). It differs from upstream osc.js 2.4.5 in that:
 
 * It is for Node.js only. The Web Socket, serial port and Chrome App transports have been removed, along with the browser builds, so it no longer depends on `ws`, `serialport`, `slip` (now inlined) or `wolfy87-eventemitter`. The core encoder/decoder still avoids Node-only APIs, so browser support can be added back as a separate entry point.
 * `osc.WebSocketPort`, `osc.SerialPort` and the environment flags (`osc.isNode`, `osc.isBufferEnv`, …) no longer exist.
@@ -37,7 +37,7 @@ For an npm-based project that depends on osc.js, you'll need a <code>package.jso
         "name": "<your project name>",
         "version": "<your project version>",
         "dependencies": {
-            "osc": "2.4.1"
+            "@companion-app/osc": "^0.1.0"
         }
     }
 
@@ -253,7 +253,7 @@ This fork only includes UDP and TCP, but the transports it removed (Web Sockets,
 The subclass implements <code>sendRaw(encoded)</code> to write the encoded bytes to the underlying connection, emits <code>data</code> (with the received bytes, and optionally some packet info) for each chunk it receives, and emits <code>ready</code>, <code>close</code> and <code>error</code> as appropriate. Encoding, decoding, SLIP framing and the <code>osc</code>, <code>message</code>, <code>bundle</code> and <code>raw</code> events are all handled by the base class. It will usually also implement <code>open()</code> and <code>close()</code>.
 
 ```javascript
-const osc = require("osc");
+const osc = require("@companion-app/osc");
 
 class SerialOSCPort extends osc.SLIPPort {
     constructor(options) {

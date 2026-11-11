@@ -1,6 +1,6 @@
 {
-    "name": "osc",
-    "version": "2.4.5",
+    "name": "@companion-app/osc",
+    "version": "0.1.0",
     "description": "An Open Sound Control (OSC) library for Node.js, with UDP and TCP transports.",
     "author": "Colin Clark",
     "contributors": [
@@ -29,6 +29,9 @@
         "MIT-LICENSE.txt",
         "GPL-LICENSE.txt"
     ],
+    "publishConfig": {
+        "access": "public"
+    },
     "engines": {
         "node": ">=20"
     },

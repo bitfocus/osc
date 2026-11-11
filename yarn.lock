@@ -47,6 +47,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@companion-app/osc@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@companion-app/osc@workspace:."
+  dependencies:
+    "@vitest/coverage-v8": "npm:^5.1.0"
+    long: "npm:4.0.0"
+    vite: "npm:^8.3.6"
+    vitest: "npm:^5.1.0"
+  languageName: unknown
+  linkType: soft
+
 "@isaacs/fs-minipass@npm:^4.0.0":
   version: 4.0.1
   resolution: "@isaacs/fs-minipass@npm:4.0.1"
@@ -632,17 +643,6 @@ __metadata:
   checksum: 10c0/985625b70ea05a39956da94f406040a0c7d27b1699a14af87b1ea75cba915b5957b75c4acdaccaefa2a86eaf40fc968bc00f6c28755a91496fc91a92b1513b38
   languageName: node
   linkType: hard
-
-"osc@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "osc@workspace:."
-  dependencies:
-    "@vitest/coverage-v8": "npm:^5.1.0"
-    long: "npm:4.0.0"
-    vite: "npm:^8.3.6"
-    vitest: "npm:^5.1.0"
-  languageName: unknown
-  linkType: soft
 
 "picocolors@npm:^1.1.1":
   version: 1.1.1
