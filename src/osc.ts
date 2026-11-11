@@ -23,6 +23,7 @@ import type {
 	OscColor,
 	OscMessage,
 	OscMessageInput,
+	OscMetaArgument,
 	OscMetaArgumentInput,
 	OscOptions,
 	OscPacket,
@@ -623,14 +624,13 @@ export const argumentTypes: Record<OscArgumentType, ArgumentTypeSpec> = {
 }
 
 /**
- * Reads the argument portion of an OSC message.
+ * Reads the argument portion of an OSC message. Each argument is read with its type, as a `{ type, value }` object.
  *
  * @param dv a DataView instance to read from
- * @param options read options
  * @param offsetState the offsetState object that stores the current offset into dv
  * @return an array of the OSC arguments that were read
  */
-export function readArguments(dv: DataView, options: OscOptions, offsetState: OffsetState): OscArgument[] {
+export function readArguments(dv: DataView, offsetState: OffsetState): OscArgument[] {
 	const typeTagString = readString(dv, offsetState)
 	if (typeTagString.indexOf(',') !== 0) {
 		// Despite what the OSC 1.0 spec says,
@@ -647,7 +647,7 @@ export function readArguments(dv: DataView, options: OscOptions, offsetState: Of
 	const argTypes = typeTagString.substring(1).split('')
 	const args: OscArgument[] = []
 
-	readArgumentsIntoArray(args, argTypes, typeTagString, dv, options, offsetState)
+	readArgumentsIntoArray(args, argTypes, typeTagString, dv, offsetState)
 
 	return args
 }
@@ -657,24 +657,17 @@ export function readArgument(
 	argType: string,
 	typeTagString: string,
 	dv: DataView,
-	options: OscOptions,
 	offsetState: OffsetState
-): OscArgument {
+): OscMetaArgument {
 	const typeSpec = argumentTypes[argType as OscArgumentType] as ArgumentTypeSpec | undefined
 	if (!typeSpec) {
 		throw new Error("'" + argType + "' is not a valid OSC type tag. Type tag string was: " + typeTagString)
 	}
 
-	let arg = typeSpec.reader(dv, offsetState) as OscArgument
-
-	if (options.metadata) {
-		arg = {
-			type: argType,
-			value: arg,
-		} as OscArgument
-	}
-
-	return arg
+	return {
+		type: argType,
+		value: typeSpec.reader(dv, offsetState),
+	} as OscMetaArgument
 }
 
 // Unsupported, non-API function.
@@ -683,7 +676,6 @@ export function readArgumentsIntoArray(
 	argTypes: string[],
 	typeTagString: string,
 	dv: DataView,
-	options: OscOptions,
 	offsetState: OffsetState
 ): OscArgument[] {
 	let i = 0
@@ -706,10 +698,10 @@ export function readArgumentsIntoArray(
 			}
 
 			const typesInArray = fromArrayOpen.slice(0, endArrayIdx)
-			arg = readArgumentsIntoArray([], typesInArray, typeTagString, dv, options, offsetState)
+			arg = readArgumentsIntoArray([], typesInArray, typeTagString, dv, offsetState)
 			i += endArrayIdx + 2
 		} else {
-			arg = readArgument(argType, typeTagString, dv, options, offsetState)
+			arg = readArgument(argType, typeTagString, dv, offsetState)
 			i++
 		}
 
@@ -853,7 +845,7 @@ export function readMessageContents(
 		throw new Error('A malformed OSC address was found while reading ' + 'an OSC message. String was: ' + address)
 	}
 
-	const args = readArguments(dv, options, offsetState)
+	const args = readArguments(dv, offsetState)
 
 	return {
 		address: address,

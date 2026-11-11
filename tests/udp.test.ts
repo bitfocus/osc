@@ -5,6 +5,8 @@ import type { OscMessageInput, UDPPort, UDPPortOptions } from '../src/index.js'
 import { nextEvent, osc, toArray, untypedOsc } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
+/** message, as it is received: arguments are read with their types */
+const receivedMessage = { address: '/test/freq', args: [{ type: 'f', value: 440 }] }
 
 const openPorts: UDPPort[] = []
 afterEach(() => {
@@ -76,7 +78,7 @@ describe('UDPPort', () => {
 		sender.send(message)
 		const [msg, timeTag, info] = await received
 
-		expect(msg).toEqual(message)
+		expect(msg).toEqual(receivedMessage)
 		expect(timeTag).toBeUndefined()
 		expect(info).toMatchObject({ address: '127.0.0.1', port: sender.socket!.address().port, family: 'IPv4' })
 	})
@@ -103,7 +105,7 @@ describe('UDPPort', () => {
 		const port = await openUDPPort()
 		const received = nextEvent(port, 'message')
 		port.sendRaw(osc.writePacket(message), '127.0.0.1', port.socket!.address().port)
-		expect((await received)[0]).toEqual(message)
+		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
 	test('emits raw data with the remote info', async () => {
@@ -204,7 +206,7 @@ describe('UDPPort', () => {
 			const onMessage = vi.fn()
 			port.on('message', onMessage)
 			socket.emit('message', Buffer.from(osc.writePacket(message)), { port: 1 })
-			expect(onMessage).toHaveBeenCalledWith(message, undefined, { port: 1 })
+			expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, { port: 1 })
 		})
 
 		test('sendRaw passes the length and defaults the address and port', () => {

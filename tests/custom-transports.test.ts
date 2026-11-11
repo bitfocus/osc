@@ -8,6 +8,8 @@ import { nextEvent, osc, slip, toArray } from './helpers.js'
 // They stand in for the serial port and Web Socket transports that this fork removed.
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
+/** message, as it is received: arguments are read with their types */
+const receivedMessage = { address: '/test/freq', args: [{ type: 'f', value: 440 }] }
 
 interface StreamPortOptions extends SLIPPortOptions {
 	readable: Readable
@@ -120,7 +122,7 @@ describe('A custom stream (SLIP framed) transport', () => {
 		const framed = toArray(slip.encode(osc.writePacket(message)))
 		aToB.write(Buffer.from(framed.slice(0, 3)))
 		aToB.write(Buffer.from(framed.slice(3)))
-		expect((await received)[0]).toEqual(message)
+		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
 	test('can use the closed-port error helper', () => {
@@ -148,11 +150,11 @@ describe('A custom message (unframed) transport', () => {
 
 		const atB = nextEvent(b, 'message')
 		a.send(message)
-		expect(await atB).toEqual([message, undefined, { from: 'a' }])
+		expect(await atB).toEqual([receivedMessage, undefined, { from: 'a' }])
 
 		const atA = nextEvent(a, 'message')
 		b.send(message)
-		expect((await atA)[0]).toEqual(message)
+		expect((await atA)[0]).toEqual(receivedMessage)
 	})
 
 	test('can be relayed to and from another transport', async () => {
@@ -166,7 +168,7 @@ describe('A custom message (unframed) transport', () => {
 
 		const atD = nextEvent(d, 'message')
 		a.send(message)
-		expect((await atD)[0]).toEqual(message)
+		expect((await atD)[0]).toEqual(receivedMessage)
 	})
 })
 
@@ -175,7 +177,7 @@ describe('Framing data without a Port', () => {
 		const onMessage = vi.fn()
 		const decoder = new osc.slip.Decoder({ onMessage })
 		decoder.decode(osc.slip.encode(osc.writePacket(message)))
-		expect(osc.readPacket(onMessage.mock.calls[0][0], {})).toEqual(message)
+		expect(osc.readPacket(onMessage.mock.calls[0][0], {})).toEqual(receivedMessage)
 	})
 
 	test('osc.slip is the codec used by SLIPPort', () => {

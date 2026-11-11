@@ -113,32 +113,27 @@ const specs = [
 ]
 
 describe('readArguments', () => {
-	test.each(specs)('$name', ({ raw, args }) => {
+	test.each(specs)('$name, with their types', ({ raw, args, typeTags }) => {
 		const offsetState = { idx: 0 }
-		const actual = osc.readArguments(dv(raw), {}, offsetState)
-		expect(normalise(actual)).toEqual(normalise(args))
+		const actual = osc.readArguments(dv(raw), offsetState)
+		expect(normalise(actual)).toEqual(normalise(typed(args, typeTags)))
 		expect(offsetState.idx).toBe(raw.length)
 	})
 
-	test.each(specs)('$name, with type metadata', ({ raw, args, typeTags }) => {
-		const actual = osc.readArguments(dv(raw), { metadata: true }, { idx: 0 })
-		expect(normalise(actual)).toEqual(normalise(typed(args, typeTags)))
-	})
-
 	test('throws for a type tag string without a leading comma', () => {
-		expect(() => osc.readArguments(dv([...oscString('if'), 0, 0, 0, 1]), {}, { idx: 0 })).toThrow(
+		expect(() => osc.readArguments(dv([...oscString('if'), 0, 0, 0, 1]), { idx: 0 })).toThrow(
 			'A malformed type tag string was found while reading the arguments of an OSC message. String was: if'
 		)
 	})
 
 	test('throws for an unknown type tag', () => {
-		expect(() => osc.readArguments(dv([...oscString(',ix'), 0, 0, 0, 1]), {}, { idx: 0 })).toThrow(
+		expect(() => osc.readArguments(dv([...oscString(',ix'), 0, 0, 0, 1]), { idx: 0 })).toThrow(
 			"'x' is not a valid OSC type tag. Type tag string was: ,ix"
 		)
 	})
 
 	test('throws for an array that is never closed', () => {
-		expect(() => osc.readArguments(dv(oscString(',[ii')), {}, { idx: 0 })).toThrow(
+		expect(() => osc.readArguments(dv(oscString(',[ii')), { idx: 0 })).toThrow(
 			"an open array type tag ('[') was found without a matching close array tag"
 		)
 	})
@@ -146,7 +141,7 @@ describe('readArguments', () => {
 	test('known quirk: nested arrays cannot be read (they can be written)', () => {
 		const written = osc.writeArguments([[1, [2]]], {})
 		expect(toArray(written).slice(0, 8)).toEqual(oscString(',[f[f]]'))
-		expect(() => osc.readArguments(new DataView(written.buffer), {}, { idx: 0 })).toThrow(
+		expect(() => osc.readArguments(new DataView(written.buffer), { idx: 0 })).toThrow(
 			"an open array type tag ('[') was found without a matching close array tag"
 		)
 	})

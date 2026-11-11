@@ -4,6 +4,8 @@ import type { OscBundleInput, OscMessageInput, PortOptions, SLIPPortOptions } fr
 import { nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
+/** message, as it is received: arguments are read with their types */
+const receivedMessage = { address: '/test/freq', args: [{ type: 'f', value: 440 }] }
 const encodedMessage = toArray(osc.writePacket(message))
 
 /** A Port with a mocked sendRaw, standing in for a real transport */
@@ -83,8 +85,8 @@ describe('Port', () => {
 		expect(rawData).toBeInstanceOf(Uint8Array)
 		expect(toArray(rawData)).toEqual(encodedMessage)
 		expect(rawInfo).toBe(info)
-		expect(await oscEvent).toEqual([message, info])
-		expect(await messageEvent).toEqual([message, undefined, info])
+		expect(await oscEvent).toEqual([receivedMessage, info])
+		expect(await messageEvent).toEqual([receivedMessage, undefined, info])
 	})
 
 	test('known quirk: a port does not use osc.defaults, so single arguments are not unpacked unless asked', () => {
@@ -92,7 +94,7 @@ describe('Port', () => {
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		port.decodeOSC(new Uint8Array(encodedMessage))
-		expect(onMessage.mock.calls[0][0]).toEqual({ address: '/test/freq', args: 440 })
+		expect(onMessage.mock.calls[0][0]).toEqual({ address: '/test/freq', args: { type: 'f', value: 440 } })
 	})
 
 	test('decodeOSC accepts an ArrayBuffer', () => {
@@ -100,7 +102,7 @@ describe('Port', () => {
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		port.decodeOSC(new Uint8Array(encodedMessage).buffer)
-		expect(onMessage).toHaveBeenCalledWith(message, undefined, undefined)
+		expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, undefined)
 	})
 
 	test('decoding a malformed packet emits an error and no message', () => {
@@ -227,7 +229,7 @@ describe('SLIPPort', () => {
 		port.emit('data', new Uint8Array([...framed.slice(5), ...framed]), undefined)
 
 		expect(onMessage).toHaveBeenCalledTimes(2)
-		expect(onMessage.mock.calls[0][0]).toEqual(message)
+		expect(onMessage.mock.calls[0][0]).toEqual(receivedMessage)
 	})
 
 	test('known quirk: messages decoded from SLIP data have no packet info', () => {
@@ -235,7 +237,7 @@ describe('SLIPPort', () => {
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		port.decodeSLIPData(slip.encode(encodedMessage), 'info')
-		expect(onMessage).toHaveBeenCalledWith(message, undefined, undefined)
+		expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, undefined)
 	})
 
 	test('with useSLIP: false, decodes unframed data', () => {
@@ -244,7 +246,7 @@ describe('SLIPPort', () => {
 		port.on('message', onMessage)
 		port.emit('data', new Uint8Array(encodedMessage), 'info')
 		expect(onMessage).toHaveBeenCalledTimes(1)
-		expect(onMessage).toHaveBeenCalledWith(message, undefined, 'info')
+		expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, 'info')
 	})
 
 	test('known quirk: a SLIP decoder error is emitted as the partial message buffer, not an Error', () => {

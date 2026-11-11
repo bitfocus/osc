@@ -5,6 +5,8 @@ import type { OscMessage, OscMessageInput, TCPSocketPort, TCPSocketPortOptions }
 import { nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
+/** message, as it is received: arguments are read with their types */
+const receivedMessage = { address: '/test/freq', args: [{ type: 'f', value: 440 }] }
 
 const cleanup: Array<() => unknown> = []
 afterEach(async () => {
@@ -74,7 +76,7 @@ describe('TCPSocketPort', () => {
 		client.send(message)
 		const [msg, timeTag, info] = await received
 
-		expect(msg).toEqual(message)
+		expect(msg).toEqual(receivedMessage)
 		expect(timeTag).toBeUndefined()
 		expect(info).toBeUndefined()
 	})
@@ -87,7 +89,7 @@ describe('TCPSocketPort', () => {
 
 		const received = nextEvent(client, 'message')
 		serverPort.send(message)
-		expect((await received)[0]).toEqual(message)
+		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
 	test('sends several messages, which arrive in order', async () => {
@@ -117,7 +119,7 @@ describe('TCPSocketPort', () => {
 
 		const received = nextEvent(serverPort, 'message')
 		client.socket!.write(Buffer.from(osc.writePacket(message)))
-		expect((await received)[0]).toEqual(message)
+		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
 	test('known quirk: with useSLIP: false, packets are still sent SLIP framed', async () => {
@@ -189,7 +191,12 @@ describe('TCPSocketPort', () => {
 			socket.emit('close', true)
 			socket.emit('connect')
 
-			expect(events).toEqual([['message', message, undefined, undefined], ['error', err], ['close', true], ['ready']])
+			expect(events).toEqual([
+				['message', receivedMessage, undefined, undefined],
+				['error', err],
+				['close', true],
+				['ready'],
+			])
 		})
 
 		test('open reconnects the existing socket', () => {

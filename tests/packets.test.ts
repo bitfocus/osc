@@ -17,6 +17,16 @@ const messageSpecs: Array<{
 			0x66, 0x5d, 0, 0, 0x43, 0xdc, 0x33, 0x33, 66, 40, 0, 0, 66, 60, 0, 0,
 		],
 		message: { address: '/carrier/freq', args: [440.4, [42, 47]] },
+		expected: {
+			address: '/carrier/freq',
+			args: [
+				{ type: 'f', value: 440.4 },
+				[
+					{ type: 'f', value: 42 },
+					{ type: 'f', value: 47 },
+				],
+			],
+		},
 		options: { metadata: false },
 	},
 	{
@@ -44,6 +54,7 @@ const messageSpecs: Array<{
 			0x65, 0x6e, 0x63, 0x79, 0, 0x2c, 0x66, 0, 0, 0x43, 0xdc, 0, 0,
 		],
 		message: { address: '/oscillator/4/frequency', args: 440 },
+		expected: { address: '/oscillator/4/frequency', args: { type: 'f', value: 440 } },
 		options: undefined,
 	},
 	{
@@ -104,19 +115,19 @@ describe('Messages', () => {
 	})
 
 	test('readMessage from a Node.js Buffer', () => {
-		expect(osc.readMessage(Buffer.from(messageSpecs[2].bytes))).toEqual(messageSpecs[2].message)
+		expect(osc.readMessage(Buffer.from(messageSpecs[2].bytes))).toEqual(messageSpecs[2].expected)
 	})
 
 	test('readMessage reads from the given offset state, and advances it', () => {
 		const bytes = [0, 0, 0, 0, ...messageSpecs[2].bytes]
 		const offsetState = { idx: 4 }
-		expect(osc.readMessage(new Uint8Array(bytes), undefined, offsetState)).toEqual(messageSpecs[2].message)
+		expect(osc.readMessage(new Uint8Array(bytes), undefined, offsetState)).toEqual(messageSpecs[2].expected)
 		expect(offsetState.idx).toBe(bytes.length)
 	})
 
 	test('readMessage of a view with a byteOffset', () => {
 		const backing = new Uint8Array([9, 9, 9, 9, ...messageSpecs[2].bytes])
-		expect(osc.readMessage(backing.subarray(4))).toEqual(messageSpecs[2].message)
+		expect(osc.readMessage(backing.subarray(4))).toEqual(messageSpecs[2].expected)
 	})
 
 	test('known quirk: blobs in a view with a byteOffset are read from the wrong position', () => {
@@ -128,12 +139,12 @@ describe('Messages', () => {
 
 	test('unpackSingleArgs: false keeps a single argument in an array', () => {
 		const actual = osc.readMessage(new Uint8Array(messageSpecs[2].bytes), { unpackSingleArgs: false })
-		expect(actual).toEqual({ address: '/oscillator/4/frequency', args: [440] })
+		expect(actual).toEqual({ address: '/oscillator/4/frequency', args: [{ type: 'f', value: 440 }] })
 	})
 
 	test('known quirk: options without unpackSingleArgs do not unpack, unlike the defaults', () => {
 		const actual = osc.readMessage(new Uint8Array(messageSpecs[2].bytes), { metadata: false })
-		expect(actual).toEqual({ address: '/oscillator/4/frequency', args: [440] })
+		expect(actual).toEqual({ address: '/oscillator/4/frequency', args: [{ type: 'f', value: 440 }] })
 	})
 
 	test('gh-17: a float with type metadata', () => {
@@ -320,7 +331,16 @@ describe('Packets', () => {
 	test('gh-102: array-typed arguments without type metadata', () => {
 		const options = { metadata: false, unpackSingleArgs: true }
 		const message = { address: '/float/andArray', args: [440.0, [42.0, 47.0]] }
-		expect(osc.readPacket(osc.writePacket(message, options), options)).toEqual(message)
+		expect(osc.readPacket(osc.writePacket(message, options), options)).toEqual({
+			address: '/float/andArray',
+			args: [
+				{ type: 'f', value: 440 },
+				[
+					{ type: 'f', value: 42 },
+					{ type: 'f', value: 47 },
+				],
+			],
+		})
 	})
 
 	test('osc.defaults', () => {

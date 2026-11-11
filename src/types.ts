@@ -108,11 +108,11 @@ export type OscMetaArgumentInput = {
 	[T in OscArgumentType]: { type: T; value: OscArgumentInputValues[T] }
 }[OscArgumentType]
 
-/** An argument value, as read without type metadata */
+/** The value of an argument, as read */
 export type OscArgumentValue = OscArgumentValues[OscArgumentType]
 
-/** An argument, as read: a value, or (with type metadata) a typed value, or an array of arguments */
-export type OscArgument = OscArgumentValue | OscMetaArgument | OscArgument[]
+/** An argument, as read: a typed value, or an array of arguments */
+export type OscArgument = OscMetaArgument | OscArgument[]
 
 /**
  * An argument for writing.
@@ -163,8 +163,8 @@ export type OscPacketInput = OscMessageInput | OscBundleInput
 
 export interface OscOptions {
 	/**
-	 * When reading, wrap each argument as a `{ type, value }` object. When writing, expect every argument to be one.
-	 * Defaults to false.
+	 * When writing, expect every argument to be a `{ type, value }` object, rather than inferring the types of those
+	 * that aren't. Defaults to false. Arguments are always read with their types.
 	 */
 	metadata?: boolean
 	/** When reading, unpack the only argument of a message out of the args array. Defaults to true. */
