@@ -9,6 +9,7 @@ This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/col
 * `osc.WebSocketPort`, `osc.SerialPort` and the environment flags (`osc.isNode`, `osc.isBufferEnv`, …) no longer exist.
 * 64-bit integer (`h`) arguments are read as `bigint`s, and written from `bigint`s (or integer numbers, when typed as `h`), rather than [Long](https://www.npmjs.com/package/long) objects, so it has no dependencies at all. As `JSON.stringify` can't serialise a `bigint`, received packets containing one can't be logged with it as they are.
 * Received arguments are always an array (upstream unpacked a lone argument out of it by default, as the `unpackSingleArgs` option, which is removed), and always have their types, as `{ type, value }` objects. Upstream only included the types when the `metadata` option was set, which now only affects writing.
+* UDP ports can use IPv6, including listening dual-stack on both IPv6 and IPv4 (see the `type` and `ipv6Only` options).
 * It requires Node.js 26 or later.
 * It is written in TypeScript, with type declarations. Everything is available as a named export, and on the default export, which is shaped like the `osc` object of osc.js:
 
@@ -181,8 +182,18 @@ OSC messages over Node.js's UDP sockets. It also supports broadcast and multicas
     </tr>
     <tr>
          <td>localAddress</td>
-         <td>The local address to bind to</td>
+         <td>The local address to bind to. Use "::" to listen on all IPv6 addresses, and (dual-stack) all IPv4 addresses too</td>
          <td>"127.0.0.1"</td>
+    </tr>
+    <tr>
+        <td>type</td>
+        <td>The type of socket: "udp4" (IPv4) or "udp6" (IPv6)</td>
+        <td>"udp6" if localAddress is an IPv6 address, otherwise "udp4"</td>
+    </tr>
+    <tr>
+        <td>ipv6Only</td>
+        <td>For a udp6 socket, use only IPv6, rather than also receiving from and sending to IPv4 addresses (which a dual-stack socket reaches at their IPv4-mapped addresses, such as "::ffff:192.0.2.1"; IPv4 addresses passed to <code>send()</code> are mapped automatically)</td>
+        <td>false</td>
     </tr>
     <tr>
         <td>remotePort</td>
@@ -196,7 +207,7 @@ OSC messages over Node.js's UDP sockets. It also supports broadcast and multicas
     </tr>
     <tr>
         <td>broadcast</td>
-        <td>A flag specifying if messages should be sent via UDP broadcast</td>
+        <td>A flag specifying if messages should be sent via UDP broadcast. Broadcast is IPv4 only, so this needs a udp4 socket</td>
         <td>false</td>
     </tr>
     <tr>

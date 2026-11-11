@@ -8,10 +8,21 @@
  */
 
 import dgram from 'node:dgram'
+import net from 'node:net'
 import { fireClosedPortSendError, Port, type PortOptions } from './transports.js'
 
 export interface UDPPortOptions extends PortOptions {
-	/** The local address to bind to. Defaults to 127.0.0.1. */
+	/**
+	 * The type of socket: 'udp4' for IPv4, or 'udp6' for IPv6. Defaults to 'udp6' when localAddress is an IPv6
+	 * address (such as '::'), and 'udp4' otherwise.
+	 */
+	type?: dgram.SocketType
+	/**
+	 * For a udp6 socket, use only IPv6. By default a udp6 socket bound to '::' is dual-stack, receiving IPv4 packets
+	 * too (from IPv4-mapped addresses, such as '::ffff:192.0.2.1'), and sending to IPv4 addresses.
+	 */
+	ipv6Only?: boolean
+	/** The local address to bind to. Use '::' to listen on all IPv6 (and, dual-stack, IPv4) addresses. Defaults to 127.0.0.1. */
 	localAddress?: string
 	/** The local port to bind to (0 for any free port). Defaults to 57121. */
 	localPort?: number
@@ -19,7 +30,7 @@ export interface UDPPortOptions extends PortOptions {
 	remoteAddress?: string
 	/** The port to send to, when send() isn't given one. Defaults to 57121. */
 	remotePort?: number
-	/** Whether to allow sending to broadcast addresses */
+	/** Whether to allow sending to broadcast addresses. Broadcast is IPv4 only, so needs a udp4 socket. */
 	broadcast?: boolean
 	/** The time to live (number of hops) for multicast packets */
 	multicastTTL?: number
@@ -64,7 +75,10 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 			return
 		}
 
-		const socket = (this.socket = dgram.createSocket('udp4'))
+		const socket = (this.socket = dgram.createSocket({
+			type: this.socketType(),
+			ipv6Only: this.options.ipv6Only,
+		}))
 
 		socket.on('error', (error) => {
 			this.emit('error', error)
@@ -79,6 +93,12 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 
 			this.emit('open', socket)
 		})
+	}
+
+	/** The type of socket the options describe; for a socket given in the options, the type option says what it is */
+	socketType(): dgram.SocketType {
+		if (this.options.type) return this.options.type
+		return net.isIPv6(this.options.localAddress as string) ? 'udp6' : 'udp4'
 	}
 
 	listen(): void {
@@ -98,7 +118,8 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 	}
 
 	/**
-	 * Sends encoded bytes, to the given address and port or else those in the options.
+	 * Sends encoded bytes, to the given address and port or else those in the options. From a dual-stack udp6 socket,
+	 * an IPv4 address is sent to as its IPv4-mapped IPv6 address.
 	 *
 	 * Known quirk: after the socket has closed, this throws.
 	 */
@@ -111,8 +132,13 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 		const length =
 			(encoded as Uint8Array).byteLength !== undefined ? (encoded as Uint8Array).byteLength : encoded.length
 
-		address = address || this.options.remoteAddress
+		address = address || (this.options.remoteAddress as string)
 		port = port !== undefined ? port : this.options.remotePort
+
+		// A dual-stack udp6 socket reaches IPv4 hosts at their IPv4-mapped IPv6 addresses
+		if (this.socketType() === 'udp6' && !this.options.ipv6Only && net.isIPv4(address)) {
+			address = '::ffff:' + address
+		}
 
 		this.socket.send(encoded as Uint8Array, 0, length, port, address, (err) => {
 			if (err) {

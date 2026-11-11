@@ -1,3 +1,4 @@
+import dgram from 'node:dgram'
 import type { EventEmitter } from 'node:events'
 import osc from '../src/index.js'
 import * as slip from '../src/slip.js'
@@ -91,3 +92,16 @@ export function nextEvent(emitter: Pick<EventEmitter, 'once'>, event: string): P
 		emitter.once(event, (...args: any[]) => resolve(args))
 	})
 }
+
+/** Whether this machine can bind an IPv6 (loopback) socket; some containers have IPv6 disabled */
+export const ipv6Available: boolean = await new Promise((resolve) => {
+	const socket = dgram.createSocket('udp6')
+	socket.once('error', () => {
+		socket.close()
+		resolve(false)
+	})
+	socket.bind(0, '::1', () => {
+		socket.close()
+		resolve(true)
+	})
+})

@@ -1,8 +1,9 @@
 import type dgram from 'node:dgram'
+import dgramModule from 'node:dgram'
 import { EventEmitter } from 'node:events'
 import { afterEach, describe, expect, test, vi, type Mock } from 'vitest'
 import type { OscMessageInput, UDPPort, UDPPortOptions } from '../src/index.js'
-import { nextEvent, osc, toArray, untypedOsc } from './helpers.js'
+import { ipv6Available, nextEvent, osc, toArray, untypedOsc } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
 /** message, as it is received: arguments are read with their types */
@@ -35,6 +36,7 @@ type FakeSocket = dgram.Socket & {
 	setBroadcast: Mock
 	setMulticastTTL: Mock
 	addMembership: Mock
+	bind: Mock
 }
 
 /** A stand-in for a dgram socket */
@@ -45,6 +47,7 @@ function fakeSocket(): FakeSocket {
 		setBroadcast: vi.fn(),
 		setMulticastTTL: vi.fn(),
 		addMembership: vi.fn(),
+		bind: vi.fn((_port: number, _address: string, callback: () => void) => callback()),
 	}) as unknown as FakeSocket
 }
 
@@ -287,6 +290,101 @@ describe('UDPPort', () => {
 			} finally {
 				spy.mockRestore()
 			}
+		})
+	})
+
+	describe('IPv6', () => {
+		test.each([
+			{ name: 'the default address', options: {}, type: 'udp4' },
+			{ name: 'an IPv4 address', options: { localAddress: '0.0.0.0' }, type: 'udp4' },
+			{ name: 'the IPv6 any address', options: { localAddress: '::' }, type: 'udp6' },
+			{ name: 'an IPv6 address', options: { localAddress: '::1' }, type: 'udp6' },
+			{ name: 'an explicit type', options: { localAddress: '0.0.0.0', type: 'udp6' }, type: 'udp6' },
+			{ name: 'an explicit type overriding the address', options: { localAddress: '::', type: 'udp4' }, type: 'udp4' },
+		] as const)('the socket type for $name is $type', ({ options, type }) => {
+			expect(new osc.UDPPort({ ...options }).socketType()).toBe(type)
+		})
+
+		test('open creates a socket of that type, passing ipv6Only through', () => {
+			const socket = fakeSocket()
+			const spy = vi.spyOn(dgramModule, 'createSocket').mockReturnValue(socket)
+			try {
+				const port = new osc.UDPPort({ localAddress: '::', localPort: 0, ipv6Only: true })
+				const onReady = vi.fn()
+				port.on('ready', onReady)
+				port.open()
+				expect(spy).toHaveBeenCalledWith({ type: 'udp6', ipv6Only: true })
+				expect(socket.bind).toHaveBeenCalledWith(0, '::', expect.any(Function))
+				expect(onReady).toHaveBeenCalled()
+
+				new osc.UDPPort({ localPort: 0 }).open()
+				expect(spy).toHaveBeenLastCalledWith({ type: 'udp4', ipv6Only: undefined })
+			} finally {
+				spy.mockRestore()
+			}
+		})
+
+		test('a dual-stack udp6 socket sends to IPv4 addresses as IPv4-mapped addresses', () => {
+			const socket = fakeSocket()
+			const port = new osc.UDPPort({ socket, type: 'udp6' })
+			port.sendRaw(new Uint8Array(4), '192.0.2.1', 9000)
+			expect(socket.send.mock.calls[0][4]).toBe('::ffff:192.0.2.1')
+
+			// Including the default remote address
+			port.sendRaw(new Uint8Array(4))
+			expect(socket.send.mock.calls[1][4]).toBe('::ffff:127.0.0.1')
+		})
+
+		test('IPv6 addresses and hostnames are sent to as they are', () => {
+			const socket = fakeSocket()
+			const port = new osc.UDPPort({ socket, type: 'udp6' })
+			port.sendRaw(new Uint8Array(4), '2001:db8::1', 9000)
+			port.sendRaw(new Uint8Array(4), '::ffff:192.0.2.1', 9000)
+			port.sendRaw(new Uint8Array(4), 'localhost', 9000)
+			expect(socket.send.mock.calls.map((call) => call[4])).toEqual(['2001:db8::1', '::ffff:192.0.2.1', 'localhost'])
+		})
+
+		test('IPv4 addresses are not mapped for an IPv6 only socket, or a udp4 socket', () => {
+			const ipv6OnlySocket = fakeSocket()
+			new osc.UDPPort({ socket: ipv6OnlySocket, type: 'udp6', ipv6Only: true }).sendRaw(new Uint8Array(4), '192.0.2.1')
+			expect(ipv6OnlySocket.send.mock.calls[0][4]).toBe('192.0.2.1')
+
+			const udp4Socket = fakeSocket()
+			new osc.UDPPort({ socket: udp4Socket }).sendRaw(new Uint8Array(4), '192.0.2.1')
+			expect(udp4Socket.send.mock.calls[0][4]).toBe('192.0.2.1')
+		})
+
+		describe.skipIf(!ipv6Available)('over real sockets', () => {
+			test('sends and receives a message over IPv6', async () => {
+				const receiver = await openUDPPort({ localAddress: '::1' })
+				const sender = await openUDPPort({
+					localAddress: '::1',
+					remoteAddress: '::1',
+					remotePort: receiver.socket!.address().port,
+				})
+
+				const received = nextEvent(receiver, 'message')
+				sender.send(message)
+				const [msg, , info] = await received
+				expect(msg).toEqual(receivedMessage)
+				expect(info).toMatchObject({ address: '::1', family: 'IPv6', port: sender.socket!.address().port })
+			})
+
+			test('a dual-stack port receives from, and replies to, IPv4 hosts', async () => {
+				const dualStack = await openUDPPort({ localAddress: '::' })
+				const ipv4 = await openUDPPort({ remotePort: dualStack.socket!.address().port })
+
+				const atDualStack = nextEvent(dualStack, 'message')
+				ipv4.send(message)
+				const [, , info] = await atDualStack
+				expect(info.address).toBe('::ffff:127.0.0.1')
+
+				const atIPv4 = nextEvent(ipv4, 'message')
+				dualStack.send(message, '127.0.0.1', ipv4.socket!.address().port)
+				const [msg, , replyInfo] = await atIPv4
+				expect(msg).toEqual(receivedMessage)
+				expect(replyInfo.family).toBe('IPv4')
+			})
 		})
 	})
 })

@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import net, { type AddressInfo } from 'node:net'
 import { afterEach, describe, expect, test, vi, type Mock } from 'vitest'
 import type { OscMessage, OscMessageInput, TCPSocketPort, TCPSocketPortOptions } from '../src/index.js'
-import { nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
+import { ipv6Available, nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
 /** message, as it is received: arguments are read with their types */
@@ -14,13 +14,13 @@ afterEach(async () => {
 })
 
 /** Starts a TCP server on an ephemeral port, wrapping each connection in a TCPSocketPort */
-async function startServer(options: TCPSocketPortOptions = {}) {
+async function startServer(options: TCPSocketPortOptions = {}, host = '127.0.0.1') {
 	const connections: TCPSocketPort[] = []
 	const server = net.createServer((socket) => {
 		connections.push(new osc.TCPSocketPort({ socket, ...options }))
 		server.emit('oscConnection', connections[connections.length - 1])
 	})
-	await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+	await new Promise<void>((resolve) => server.listen(0, host, resolve))
 	cleanup.push(async () => {
 		for (const c of connections) c.socket!.destroy()
 		await new Promise((resolve) => server.close(resolve))
@@ -245,5 +245,17 @@ describe('TCPSocketPort', () => {
 
 	test('known quirk: close without a socket throws', () => {
 		expect(() => new osc.TCPSocketPort({}).close()).toThrow(TypeError)
+	})
+
+	test.skipIf(!ipv6Available)('sends a message over IPv6', async () => {
+		const { server, port } = await startServer({}, '::1')
+		const connection = nextEvent(server, 'oscConnection')
+		const client = await connectClient(port, { address: '::1' })
+		const [serverPort] = await connection
+
+		const received = nextEvent(serverPort, 'message')
+		client.send(message)
+		expect((await received)[0]).toEqual(receivedMessage)
+		expect(client.socket!.remoteFamily).toBe('IPv6')
 	})
 })
