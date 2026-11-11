@@ -243,6 +243,50 @@ udpPort.on("ready", function () {
 });
 ```
 
+### Writing your own transport
+
+This fork only includes UDP and TCP, but the transports it removed (Web Sockets, serial ports) were built entirely on the public API, so an application, or a separate package, can provide one without changing or rebuilding osc.js. A transport is a subclass of one of:
+
+* <code>osc.Port</code>, for message-based transports where each chunk of data received is one whole OSC packet (UDP, Web Sockets).
+* <code>osc.SLIPPort</code>, for stream-based transports (TCP, serial ports). It frames outgoing packets with SLIP, and reassembles incoming packets from data that may arrive split across chunks.
+
+The subclass implements <code>sendRaw(encoded)</code> to write the encoded bytes to the underlying connection, emits <code>data</code> (with the received bytes, and optionally some packet info) for each chunk it receives, and emits <code>ready</code>, <code>close</code> and <code>error</code> as appropriate. Encoding, decoding, SLIP framing and the <code>osc</code>, <code>message</code>, <code>bundle</code> and <code>raw</code> events are all handled by the base class. It will usually also implement <code>open()</code> and <code>close()</code>.
+
+```javascript
+const osc = require("osc");
+
+class SerialOSCPort extends osc.SLIPPort {
+    constructor(options) {
+        super(options);
+        this.serialPort = options.serialPort; // eg a SerialPort from the serialport package
+    }
+
+    open() {
+        this.serialPort.on("data", (data) => this.emit("data", data, undefined));
+        this.serialPort.on("error", (err) => this.emit("error", err));
+        this.serialPort.on("close", () => this.emit("close"));
+        this.serialPort.on("open", () => this.emit("ready"));
+        this.serialPort.open();
+    }
+
+    sendRaw(encoded) {
+        if (!this.serialPort.isOpen) {
+            osc.fireClosedPortSendError(this);
+            return;
+        }
+        this.serialPort.write(encoded);
+    }
+
+    close() {
+        this.serialPort.close();
+    }
+}
+```
+
+The SLIP codec is also available on its own, as <code>osc.slip</code> (<code>osc.slip.encode(bytes)</code> and <code>new osc.slip.Decoder({ onMessage })</code>), for transports that need to do their own framing.
+
+See <code>tests/custom-transports.test.mjs</code> for working stream and message transports built this way.
+
 ### OSC Bundle and Message Objects
 
 osc.js represents bundles and messages as (mostly) JSON-compatible objects. Here's how they are structured:

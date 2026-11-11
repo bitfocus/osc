@@ -19,6 +19,9 @@ var osc = require("./osc.js"),
 
     osc.supportsSerial = false;
 
+    // The SLIP framing used by osc.SLIPPort, for transports that need to frame data themselves.
+    osc.slip = slip;
+
     // Unsupported, non-API function.
     osc.firePacketEvents = function (port, packet, timeTag, packetInfo) {
         if (packet.address) {
