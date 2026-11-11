@@ -1,50 +1,21 @@
 osc.js
 ======
 
-osc.js is a library for reading and writing [Open Sound Control](http://opensoundcontrol.org) messages in JavaScript. It works in both Node.js and in a web browser.
+osc.js is a library for reading and writing [Open Sound Control](http://opensoundcontrol.org) messages in JavaScript.
 
-osc.js is maintained by [Colin Clark](https://colinclark.org). Please respect his unpaid labour (and that of other open source contributors), be kind, share projects you're working on, and consider contributing your own time to help improve the library. :heart:
+This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/colinbdclark/osc.js) by [Colin Clark](https://colinclark.org), maintained for use in [Companion](https://github.com/bitfocus/companion) and its modules. It differs from upstream osc.js 2.4.5 in that:
 
-Why osc.js?
------------
-
-There are several other OSC libraries available for JavaScript. However, most depend on Node.js-specific APIs. This means that they can't be run in a browser or on web-only platforms such as Chrome OS. osc.js uses only cross-platform APIs (`TypedArrays` and `DataView`), ensuring that it can run in any modern JavaScript environment.
-
-osc.js is fast, comprehensive, fully spec-compliant, tested, modular, and provides a wide variety of optional transports for sending and receiving OSC data.
+* It is for Node.js only. The Web Socket, serial port and Chrome App transports have been removed, along with the browser builds, so it no longer depends on `ws`, `serialport`, `slip` (now inlined) or `wolfy87-eventemitter`. The core encoder/decoder still avoids Node-only APIs, so browser support can be added back as a separate entry point.
+* `osc.WebSocketPort`, `osc.SerialPort` and the environment flags (`osc.isNode`, `osc.isBufferEnv`, …) no longer exist.
 
 What Does it Do?
 ----------------
 
 osc.js reads and writes OSC-formatted binary data into plain JavaScript objects. It provides adaptors for Node.js Buffer objects as well as standard ArrayBuffers.
 
-The core of osc.js is transport agnostic. You can receive OSC data in whatever manner works best for your application: serial port APIs such as node-serialport or chrome.serial, socket APIs such as Node.js dgram or WebRTC data channels, WebSockets or binary XHR messages should all work. Connect osc.js up to your source of incoming/outgoing data, and you're all set. This approach is consistent with the design of Open Sound Control as a _content format_ that is independent from its means of transport.
+The core of osc.js is transport agnostic: connect it up to whatever source of incoming/outgoing data suits your application. This approach is consistent with the design of Open Sound Control as a _content format_ that is independent from its means of transport.
 
-In addition to the low-level encoder/decoder functions, osc.js also provides a comprehensive set of transport objects, called <code>Port</code>s, for use in standard browsers, Chrome Apps, and Node.js applications. These include:
-
-<table>
-    <tr>
-        <th>Transport</th>
-        <th>Supported Platforms</th>
-    </tr>
-    <tr>
-        <td>UDP</td>
-        <td>Node.js, Chrome Apps</td>
-    </tr>
-    <tr>
-        <td>Serial port</td>
-        <td>Node.js, Chrome Apps</td>
-    </tr>
-    <tr>
-        <td>Web Sockets</td>
-        <td>Browsers, Node.js, Chrome Apps</td>
-    </tr>
-    <tr>
-        <td>TCP</td>
-        <td>Node.js</td>
-    </tr>
-</table>
-
-For stream-based protocols such as serial and TCP, osc.js will take care of SLIP framing for you.
+In addition to the low-level encoder/decoder functions, osc.js provides transport objects, called <code>Port</code>s, for UDP (including broadcast and multicast) and TCP in Node.js. For stream-based protocols such as TCP, osc.js will take care of SLIP framing for you.
 
 Status
 ------
@@ -54,7 +25,7 @@ osc.js supports all OSC 1.0 and 1.1 required and optional types.
 Installing osc.js
 -----------------
 
-osc.js is typically installed via [npm](https://npmjs.com). [Bower](https://bower.io) support is available, but is deprecated and untested.
+osc.js is typically installed via [npm](https://npmjs.com).
 
 ### Installing with npm
 
@@ -78,31 +49,13 @@ Then, to install osc.js and all your other project dependencies, run:
 
 Your dependencies will be located in a directory called <code>node_modules</code> in your project root.
 
-### Installing osc.js for use in Electron Applications
-
-[Electron](https://github.com/electron/electron) allows developers to create applications using Web technologies and deploy them as native applications on Mac, Windows, and Linux.
-
-Electron, however, ships with its own version of Node.js, which may be different from the  version you have installed on your computer. osc.js depends on native Node.js modules such as [node-serialport](https://github.com/EmergingTechnologyAdvisors/node-serialport), which need to be compiled against the Electron version of Node.js in order for them to work correctly.
-
-To install osc.js for Electron applications, there are two options:
-
-1. Follow [the instructions provided by the node-serialport project](https://github.com/EmergingTechnologyAdvisors/node-serialport#electron) and use [electron-rebuild](https://github.com/electron/electron-rebuild) to recompile your dependencies after running <code>npm install</code>
-2. Use an <code>.npmrc</code> file to override npm's default compile target and runtime settings for Electron. Here's an example of an <code>.npmrc</code> file. Don't forget to make sure that the <code>target</code> property matches the version of Electron you're using:
-
-```
-target=23.1.3
-disturl=https://electronjs.org/headers
-runtime=electron
-build_from_source=true
-```
-
 How osc.js Works
 ----------------
 
 osc.js consists of two distinct layers:
 
 1. The low-level functional API, which provides simple stateless functions for reading and writing OSC packets.
-2. The transport layer, which provides a simple EventEmitter-style API for sending and receiving OSC packets using a variety of transports such as UDP and Web Sockets.
+2. The transport layer, which provides a simple EventEmitter-style API for sending and receiving OSC packets using UDP or TCP.
 
 Typically, you'll use the Port API for sending and receiving OSC packets over a particular transport, but if you want to write your own transports or want a lower-level interface, you can use the functional API directly.
 
@@ -194,209 +147,8 @@ All <code>osc.Port</code>s implement the [Event Emitter API](https://nodejs.org/
 Examples
 --------
 
-In-depth example osc.js applications for the browser, Node.js, and Chrome OS are available in the [osc.js examples repository](https://github.com/colinbdclark/osc.js-examples).
+Example osc.js applications are available in the upstream [osc.js examples repository](https://github.com/colinbdclark/osc.js-examples); those using Web Sockets, serial ports or Chrome Apps do not apply to this fork.
 
-
-### Web Sockets in the Browser
-
-The <code>osc.WebSocketPort</code> object supports sending and receiving
-OSC messages over Web Sockets.
-
-#### Options
-
-<table>
-    <tr>
-        <th>Property</th>
-        <th>Description</th>
-        <th>Default Value</th>
-    </tr>
-    <tr>
-        <td>url</td>
-        <td>The Web Socket URL to connect to (required for clients)</td>
-        <td>none</td>
-    </tr>
-    <tr>
-        <td>socket</td>
-        <td>A Web Socket instance to bind to (optional); if supplied, it is your job to configure and open it appropriately</td>
-        <td>none</td>
-    </tr>
-</table>
-
-#### Sample Code
-
-_More code examples showing how osc.js can be used in browser-based, Node.js, and Chrome App applications can be found in the [osc.js examples repository](https://github.com/colinbdclark/osc.js-examples)._
-
-##### Including osc.js in your HTML page:
-```html
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>osc.js Web Sockets</title>
-        <meta charset="UTF-8" />
-        <script src="node_modules/osc.js/dist/osc-browser.min.js"></script>
-    </head>
-    <body></body>
-</html>
-```
-
-##### Creating an OSC Web Socket Port object:
-```javascript
-var oscPort = new osc.WebSocketPort({
-    url: "ws://localhost:8081", // URL to your Web Socket server.
-    metadata: true
-});
-```
-
-##### Opening the Port:
-```javascript
-oscPort.open();
-```
-
-##### Listening for incoming OSC messages:
-```javascript
-oscPort.on("message", function (oscMsg) {
-    console.log("An OSC message just arrived!", oscMsg);
-});
-```
-
-##### Sending OSC messages:
-```javascript
-// For most Ports, send() should only be called after the "ready" event fires.
-oscPort.on("ready", function () {
-    oscPort.send({
-        address: "/carrier/frequency",
-        args: [
-            {
-                type: "f",
-                value: 440
-            }
-        ]
-    });
-});
-```
-
-##### Sending OSC bundles:
-```javascript
-oscPort.on("ready", function () {
-    oscPort.send({
-        // Tags this bundle with a timestamp that is 60 seconds from now.
-        // Note that the message will be sent immediately;
-        // the receiver should use the time tag to determine
-        // when to act upon the received message.
-        timeTag: osc.timeTag(60),
-
-        packets: [
-            {
-                address: "/carrier/frequency",
-                args: [
-                    {
-                        type: "f",
-                        value: 440
-                    }
-                ]
-            },
-            {
-                address: "/carrier/amplitude",
-                args: [
-                    {
-                        type: "f",
-                        value: 0.5
-                    }
-                ]
-            }
-        ]
-    });
-});
-
-```
-
-##### Using osc.js with Require.js
-```javascript
-// Define your module paths, including osc.js' dependencies.
-// Note: these paths must resolve to wherever you have placed
-// osc.js, slip.js, and eventEmitter in your project.
-require.config({
-    paths: {
-        slip: "../node_modules/slip.js/dist/slip.min",
-        EventEmitter: "../node_modules/eventEmitter/EventEmitter.min",
-        long: "../node_modules/long/dist/Long.min",
-        osc: "../node_modules/osc.js/osc-module.min"
-    }
-});
-
-// Load it asynchronously.
-require(["osc"], function (osc) {
-    // Do something with osc.js when it has fully loaded.
-});
-```
-
-##### Using osc.js with WebPack, etc. - help wanted!
-Users have reported that osc.js can be used in browser-based applications with WebPack by loading the pre-built <code>osc-browser.js</code> package in their code:
-
-```javascript
-require("osc/dist/osc-browser");
-```
-
-osc.js is not currently tested using WebPack due to limited support resources. Nonetheless, contributions are very much welcomed from the community to help make osc.js more idiomatic when using WebPack or similar technologies, particularly if such changes enable continued support of simpler toolchains (or none) and the use of long-standing browser idioms such as plain old <code>script</code> tags.
-
-osc.js also does not currently support being loaded as an ES6 module. Contributions for this are also welcome, but any solution should support full compatibility with simpler and long-standing web idioms as above (hint: a new built file will be required that contains suitable ES6 export boilerplate).
-
-### Web Sockets in Node.js
-
-The <code>osc.WebSocketPort</code> object supports sending and receiving
-OSC messages over Web Sockets.
-
-#### Options
-
-<table>
-    <tr>
-        <th>Property</th>
-        <th>Description</th>
-        <th>Default Value</th>
-    </tr>
-    <tr>
-        <td>url</td>
-        <td>The Web Socket URL to connect to (required for clients)</td>
-        <td>none</td>
-    </tr>
-    <tr>
-        <td>socket</td>
-        <td>A Web Socket instance to bind to (required for servers, optional for clients); if supplied, it is your job to configure and open it appropriately</td>
-        <td>none</td>
-    </tr>
-</table>
-
-#### Sample Code
-
-```javascript
-var osc = require("osc"),
-    http = require("http"),
-    WebSocket = require("ws");
-
-// Create an Express server app
-// and serve up a directory of static files.
-var app = require("express").express(),
-    server = app.listen(8081);
-
-app.use("/", express.static(__dirname + "/static"));
-
-// Listen for Web Socket requests.
-var wss = new WebSocket.Server({
-    server: server
-});
-
-// Listen for Web Socket connections.
-wss.on("connection", function (socket) {
-    var socketPort = new osc.WebSocketPort({
-        socket: socket,
-        metadata: true
-    });
-
-    socketPort.on("message", function (oscMsg) {
-        console.log("An OSC Message was received!", oscMsg);
-    });
-});
-```
 
 ### UDP in Node.js
 
@@ -490,135 +242,6 @@ udpPort.on("ready", function () {
     }, "127.0.0.1", 57110);
 });
 ```
-
-### Serial in a Chrome App
-
-#### Including osc.js in your Chrome App page
-```html
-<script src="../bower_components/osc.js/dist/osc-chromeapp.min.js"></script>
-```
-
-#### Defining the appropriate permissions in manifest.json
-```json
-{
-    "name": "OSC.js Chrome App Demo",
-    "version": "1",
-    "manifest_version": 2,
-    "permissions": [
-        "serial"
-    ],
-    "app": {
-        "background": {
-            "scripts": ["js/launch.js"],
-            "transient": true
-        }
-    }
-}
-```
-
-#### Connecting to the serial port and listening for OSC messages
-```javascript
-// Instantiate a new OSC Serial Port.
-var serialPort = new osc.SerialPort({
-    devicePath: "/dev/cu.usbmodem22131",
-    metadata: true
-});
-
-// Listen for the message event and map the OSC message to the synth.
-serialPort.on("message", function (oscMsg) {
-    console.log("An OSC message was received!", oscMsg);
-});
-
-// Open the port.
-serialPort.open();
-```
-
-### UDP in a Chrome App
-
-The <code>osc.UDPPort</code> object supports the sending and receiving of
-OSC messages over a <code>chrome.sockets.udp</code> socket. It also supports broadcast and multicast UDP.
-
-#### Options
-
-<table>
-    <tr>
-        <th>Property</th>
-        <th>Description</th>
-        <th>Default Value</th>
-    </tr>
-    <tr>
-        <td>localPort</td>
-        <td>The port to listen on</td>
-        <td>57121</td>
-    </tr>
-    <tr>
-         <td>localAddress</td>
-         <td>The local address to bind to</td>
-         <td>"127.0.0.1"</td>
-    </tr>
-    <tr>
-        <td>remotePort</td>
-        <td>The remote port to send messages to (optional)</td>
-        <td>none</td>
-    </tr>
-    <tr>
-        <td>remoteAddress</td>
-        <td>The remote address to send messages to (optional)</td>
-        <td>none</td>
-    </tr>
-    <tr>
-        <td>broadcast</td>
-        <td>A flag specifying if messages should be sent via UDP broadcast</td>
-        <td>false</td>
-    </tr>
-    <tr>
-        <td>multicastTTL</td>
-        <td>The time to live (number of hops) for a multicast connection (optional)</td>
-        <td>none</td>
-    </tr>
-    <tr>
-        <td>multicastMembership</td>
-        <td>An array of multicast addresses to join when listening for multicast messages (optional)</td>
-        <td>none</td>
-    </tr>
-    <tr>
-        <td>socketId</td>
-        <td>The id of an existing socket to use instead of osc.js creating one for you; if supplied, it is your job to configure and bind it appropriately</td>
-        <td>none</td>
-    </tr>
-</table>
-
-
-Handling Errors
----------------
-
-All osc.js Transport objects emit <code>"error"</code> messages whenever an error occurs,
-such as when a malformed message is received. You should always listen for errors and
-handle them in an appropriate manner for your application.
-
-```javascript
-var port = osc.UDPPort();
-port.on("error", function (error) {
-    console.log("An error occurred: ", error.message);
-});
-```
-
-The low-level osc.js API, described below, will throw JavaScript <code>Error</code> objects whenever an error occurs;
-they should be caught and handled using
-<code>try</code>/<code>catch</code>.
-
-```javascript
-var msg;
-
-try {
-    msg = osc.readPacket(rawPacket);
-} catch (error) {
-    console.log("An error occurred: ", error.message);
-}
-```
-
-The osc.js Low-Level API
-------------------------
 
 ### OSC Bundle and Message Objects
 
@@ -834,48 +457,20 @@ License
 
 osc.js is maintained by Colin Clark and distributed under the MIT and GPL 3 licenses.
 
-Supported Environments
-----------------------
-
-osc.js releases are tested and supported on a best-effort basis in the following environments:
-
-<table>
-    <thead>
-        <tr><th>Environment</th><th>Tested OS</th><th>Version</th></tr>
-    </thead>
-    <tbody>
-        <tr><td>Chrome</td><td>Mac OS X, Windows</td><td>Stable channel</td></tr>
-        <tr><td>Firefox</td><td>Mac OS X, Windows</td><td>Stable channel</td></tr>
-        <tr><td>Safari</td><td>Mac OS X</td><td>Latest</td></tr>
-        <tr><td>Edge</td><td>Windows</td><td>Latest</td></tr>
-        <tr><td>Node.js</td><td>Mac OS X, Windows</td><td>LTS</td></tr>
-        <tr><td>Electron</td><td>Mac OS X, Windows</td><td>Latest</td></tr>
-    </tbody>
-</table>
-
 Contributing to osc.js
 ----------------------
 
 Contributions and pull requests to osc.js are hugely appreciated. Wherever possible, all fixes and new features should be accompanied by unit tests to help verify that they work and avoid regressions. When new features are introduced, a pull request to the [osc.js-examples repository](https://github.com/colinbdclark/osc.js-examples) with an example of how to use it is also appreciated.
 
-Code should follow the style conventions of the project (such as they are), which can be automatically validated using JSHint by running <code>grunt jshint</code>.
+## How to Test Your Contributions
 
-Currently, the project is maintained by one person; sometimes it will take a bit of time to respond, review, and merge contributions. Help with bug triage, code reviews, testing, and examples is also welcome.
+This project uses [Yarn](https://yarnpkg.com) (via Corepack) and [Vitest](https://vitest.dev). To fetch the dependencies and run the tests:
 
-## How to Build and Test Your Contributions
+    corepack enable
+    yarn install
+    yarn test
 
-osc.js depends on npm, Grunt, and Testem. Make sure you have these installed, and then run the following commands to fetch all necessary dependencies:
-
-    npm install
-
-To lint and generate builds from new source code:
-
-    grunt
-
-Running the unit tests:
-
-1. To run the fully automated tests, run "npm test"
-2. To run the electron tests, run "npm run electron-test"
+`yarn test:coverage` also checks coverage, which must stay at 100%. Behaviour inherited from upstream that is surprising or buggy is pinned by tests named `known quirk: …`, so that changing it is a deliberate decision.
 
 Contributors
 ------------
