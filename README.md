@@ -3,7 +3,9 @@
 
 A library for reading and writing [Open Sound Control](https://opensoundcontrol.stanford.edu) (OSC) packets in Node.js, and sending and receiving them over UDP and TCP.
 
-This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/colinbdclark/osc.js) by [Colin Clark](https://colinclark.org), maintained for use in [Companion](https://github.com/bitfocus/companion) and its modules. If you are coming from the `osc` package, see [Migrating from osc](#migrating-from-osc).
+It is a general purpose OSC library, for any Node.js application. It is maintained by [Bitfocus](https://bitfocus.io), primarily for [Companion](https://github.com/bitfocus/companion) and its modules, many of which talk OSC to the devices they control.
+
+It started as a fork of [osc.js](https://github.com/colinbdclark/osc.js) by [Colin Clark](https://colinclark.org) (the `osc` package on npm). If you are coming from that, see [Migrating from osc](#migrating-from-osc).
 
 * Supports all of the OSC 1.0 and 1.1 argument types, including arrays (nested too), 64-bit integers, doubles, time tags, colours and MIDI messages.
 * UDP, including broadcast, multicast, and IPv6 (dual-stack too).
@@ -221,10 +223,10 @@ See [`tests/custom-transports.test.ts`](tests/custom-transports.test.ts) for wor
 Migrating from osc
 ------------------
 
-This package was forked from version 2.4.5 of the [`osc`](https://www.npmjs.com/package/osc) package (osc.js), and keeps its shape, but with clearer names, fewer pieces, and a lot of fixes. To move a Companion module across:
+This package was forked from version 2.4.5 of the [`osc`](https://www.npmjs.com/package/osc) package (osc.js), and keeps its shape, but with clearer names, fewer pieces, and a lot of fixes. To move code across:
 
-1. Make sure the module uses the `node26` runtime (in `companion/manifest.json`), as this package needs Node.js 26 or later.
-2. Swap the dependency: `yarn remove osc && yarn add @companion-app/osc`. If the module has its own type declarations for `osc`, delete them.
+1. Make sure it runs on Node.js 26 or later. (For a Companion module, that means the `node26` runtime, in `companion/manifest.json`.)
+2. Swap the dependency: `yarn remove osc && yarn add @companion-app/osc` (or the npm equivalent). If your project has its own type declarations for `osc`, delete them.
 3. Update the imports and names, using the tables below.
 4. Update the code that reads received arguments, which are now always an array of `{ type, value }` objects (see below).
 
