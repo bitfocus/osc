@@ -250,10 +250,10 @@ const bundle: OscBundleInput = {
 const metadataOptions = { metadata: true }
 
 describe('Bundles', () => {
-	test('readOscBundle with nested bundles', () => {
+	test('read a bundle with nested bundles', () => {
 		const view = new DataView(new Uint8Array(bundleBytes).buffer)
 		const offsetState = { idx: 0 }
-		expect(normalise(osc.readOscBundle(view, metadataOptions, offsetState))).toEqual(normalise(bundle))
+		expect(normalise(osc.readOscPacket(view, undefined, offsetState))).toEqual(normalise(bundle))
 		expect(offsetState.idx).toBe(view.byteLength)
 	})
 

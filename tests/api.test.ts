@@ -13,7 +13,6 @@ describe('Package entry points', () => {
 
 	test('@companion-app/osc/codec', () => {
 		expect(Object.keys(codec).sort()).toEqual([
-			'readOscBundle',
 			'readOscMessage',
 			'readOscPacket',
 			'writeOscBundle',

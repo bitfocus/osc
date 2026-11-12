@@ -4,4 +4,4 @@
  * '@companion-app/osc/codec': encoding and decoding OSC packets, without a port.
  */
 
-export { readOscBundle, readOscMessage, readOscPacket, writeOscBundle, writeOscMessage, writeOscPacket } from './osc.js'
+export { readOscMessage, readOscPacket, writeOscBundle, writeOscMessage, writeOscPacket } from './osc.js'

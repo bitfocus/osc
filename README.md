@@ -45,7 +45,7 @@ The package is split up by what you need, so that you can import things by name,
 | Import from | For | Exports |
 | --- | --- | --- |
 | `@companion-app/osc` | Sending and receiving over UDP and TCP | `OscUdpPort`, `OscTcpPort`, `createOscTimeTag`, and the packet, argument and option types |
-| `@companion-app/osc/codec` | Encoding and decoding packets, without a port | `readOscPacket`, `writeOscPacket`, `readOscMessage`, `writeOscMessage`, `readOscBundle`, `writeOscBundle` |
+| `@companion-app/osc/codec` | Encoding and decoding packets, without a port | `readOscPacket`, `writeOscPacket`, `readOscMessage`, `writeOscMessage`, `writeOscBundle` |
 | `@companion-app/osc/transport` | [Writing your own transport](#writing-your-own-transport) | `OscPort`, `OscStreamPort`, `OscRelay`, `fireClosedPortSendError` |
 | `@companion-app/osc/framing` | Framing data for a stream yourself | `slip`, `sizeCount` |
 
@@ -171,7 +171,7 @@ const bytes = writeOscPacket({ address: "/volume", args: [0.5] }); // a Uint8Arr
 const packet = readOscPacket(bytes); // { address: "/volume", args: [{ type: "f", value: 0.5 }] }
 ```
 
-`writeOscPacket(packet, options)` takes the same `metadata` option as the ports. `readOscMessage`/`writeOscMessage` and `readOscBundle`/`writeOscBundle` do the same for just messages, or just bundles. Reading throws an `Error` for a malformed packet.
+`writeOscPacket(packet, options)` takes the same `metadata` option as the ports. `readOscMessage` and `writeOscMessage` do the same for just messages, and `writeOscBundle` for just bundles; read a bundle with `readOscPacket`. Reading throws an `Error` for a malformed packet.
 
 Writing your own transport
 --------------------------
@@ -241,7 +241,8 @@ This package was forked from version 2.4.5 of the [`osc`](https://www.npmjs.com/
 | `osc.TCPSocketPort` | `OscTcpPort` |
 | `osc.timeTag(secs, now)` | `createOscTimeTag(secs, now)` |
 | `osc.readPacket`, `osc.writePacket` | `readOscPacket`, `writeOscPacket` from `@companion-app/osc/codec` |
-| `osc.readMessage`, `osc.writeMessage`, `osc.readBundle`, `osc.writeBundle` | `readOscMessage`, `writeOscMessage`, `readOscBundle`, `writeOscBundle` from `@companion-app/osc/codec` |
+| `osc.readMessage`, `osc.writeMessage`, `osc.writeBundle` | `readOscMessage`, `writeOscMessage`, `writeOscBundle` from `@companion-app/osc/codec` |
+| `osc.readBundle` | `readOscPacket` from `@companion-app/osc/codec`; `readBundle` was the same function, and read messages too |
 | `osc.Port`, `osc.SLIPPort`, `osc.Relay` | `OscPort`, `OscStreamPort`, `OscRelay` from `@companion-app/osc/transport` |
 | `osc.fireClosedPortSendError` | `fireClosedPortSendError` from `@companion-app/osc/transport` |
 | `osc.WebSocketPort`, `osc.SerialPort` | Removed; see [Writing your own transport](#writing-your-own-transport) |

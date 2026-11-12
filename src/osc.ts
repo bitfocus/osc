@@ -962,19 +962,6 @@ export function isValidMessage(msg: unknown): msg is OscMessageInput {
 	return !!address && (address as string).indexOf('/') === 0
 }
 
-/**
- * Reads an OSC bundle.
- *
- * @param dv the DataView instance to read from
- * @param _options ignored; reading has no options. It's kept so that existing calls, which pass it before the
- *   offset state, keep working.
- * @param offsetState an offsetState object that stores the current offset into dv
- * @return the bundle or message object that was read
- */
-export function readOscBundle(dv: ByteSource, _options?: OscOptions, offsetState?: OffsetState): OscPacket {
-	return readOscPacket(dv, undefined, offsetState)
-}
-
 // Unsupported, non-API function.
 export function collectBundlePackets(
 	bundle: OscBundleInput,
