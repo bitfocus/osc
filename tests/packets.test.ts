@@ -100,41 +100,41 @@ const messageSpecs: Array<{
 ]
 
 describe('Messages', () => {
-	test.each(messageSpecs)('readMessage $name', ({ bytes, message, expected, options }) => {
-		const actual = osc.readMessage(new Uint8Array(bytes), options)
+	test.each(messageSpecs)('readOscMessage $name', ({ bytes, message, expected, options }) => {
+		const actual = osc.readOscMessage(new Uint8Array(bytes), options)
 		expect(normalise(actual)).toEqual(normalise(expected ?? message))
 	})
 
-	test.each(messageSpecs)('readMessage $name, from a DataView', ({ bytes, message, expected, options }) => {
-		const actual = osc.readMessage(new DataView(new Uint8Array(bytes).buffer), options)
+	test.each(messageSpecs)('readOscMessage $name, from a DataView', ({ bytes, message, expected, options }) => {
+		const actual = osc.readOscMessage(new DataView(new Uint8Array(bytes).buffer), options)
 		expect(normalise(actual)).toEqual(normalise(expected ?? message))
 	})
 
-	test.each(messageSpecs)('writeMessage $name', ({ bytes, message, options }) => {
-		const actual = osc.writeMessage(message, options)
+	test.each(messageSpecs)('writeOscMessage $name', ({ bytes, message, options }) => {
+		const actual = osc.writeOscMessage(message, options)
 		expect(actual).toBeInstanceOf(Uint8Array)
 		expect(toArray(actual)).toEqual(bytes)
 	})
 
 	test.each(messageSpecs)('round trip $name', ({ message, expected, options }) => {
-		const actual = osc.readMessage(osc.writeMessage(message, options), options)
+		const actual = osc.readOscMessage(osc.writeOscMessage(message, options), options)
 		expect(normalise(actual)).toEqual(normalise(expected ?? message))
 	})
 
-	test('readMessage from a Node.js Buffer', () => {
-		expect(osc.readMessage(Buffer.from(messageSpecs[2].bytes))).toEqual(messageSpecs[2].expected)
+	test('readOscMessage from a Node.js Buffer', () => {
+		expect(osc.readOscMessage(Buffer.from(messageSpecs[2].bytes))).toEqual(messageSpecs[2].expected)
 	})
 
-	test('readMessage reads from the given offset state, and advances it', () => {
+	test('readOscMessage reads from the given offset state, and advances it', () => {
 		const bytes = [0, 0, 0, 0, ...messageSpecs[2].bytes]
 		const offsetState = { idx: 4 }
-		expect(osc.readMessage(new Uint8Array(bytes), undefined, offsetState)).toEqual(messageSpecs[2].expected)
+		expect(osc.readOscMessage(new Uint8Array(bytes), undefined, offsetState)).toEqual(messageSpecs[2].expected)
 		expect(offsetState.idx).toBe(bytes.length)
 	})
 
-	test('readMessage of a view with a byteOffset', () => {
+	test('readOscMessage of a view with a byteOffset', () => {
 		const backing = new Uint8Array([9, 9, 9, 9, ...messageSpecs[2].bytes])
-		expect(osc.readMessage(backing.subarray(4))).toEqual(messageSpecs[2].expected)
+		expect(osc.readOscMessage(backing.subarray(4))).toEqual(messageSpecs[2].expected)
 	})
 
 	test('blobs, MIDI messages and colours are read from the right place in a view with a byteOffset', () => {
@@ -146,9 +146,9 @@ describe('Messages', () => {
 				{ type: 'r', value: { r: 8, g: 9, b: 10, a: 1 } },
 			],
 		}
-		const bytes = toArray(osc.writeMessage(message, { metadata: true }))
+		const bytes = toArray(osc.writeOscMessage(message, { metadata: true }))
 		const backing = new Uint8Array([9, 9, 9, 9, ...bytes])
-		expect(normalise(osc.readMessage(backing.subarray(4)))).toEqual(
+		expect(normalise(osc.readOscMessage(backing.subarray(4)))).toEqual(
 			normalise({
 				address: '/b',
 				args: [
@@ -161,37 +161,37 @@ describe('Messages', () => {
 	})
 
 	test('a single argument is read into an array, like any other number of arguments', () => {
-		const actual = osc.readMessage(new Uint8Array(messageSpecs[2].bytes))
+		const actual = osc.readOscMessage(new Uint8Array(messageSpecs[2].bytes))
 		expect(actual).toEqual({ address: '/oscillator/4/frequency', args: [{ type: 'f', value: 440 }] })
 	})
 
 	test('gh-17: a float with type metadata', () => {
 		const msg: OscMessageInput = { address: '/sl/1/down', args: [{ type: 'f', value: 444.4 }] }
-		const decoded = osc.readMessage(osc.writeMessage(msg), { metadata: true })
+		const decoded = osc.readOscMessage(osc.writeOscMessage(msg), { metadata: true })
 		expect(normalise(decoded)).toEqual(normalise(msg))
 	})
 
 	test('a message without a type tag string, from an older implementation, has no arguments', () => {
 		const bytes = new Uint8Array(oscString('/foo'))
-		expect(osc.readMessage(bytes)).toEqual({ address: '/foo', args: [] })
-		expect(osc.readPacket(bytes)).toEqual({ address: '/foo', args: [] })
+		expect(osc.readOscMessage(bytes)).toEqual({ address: '/foo', args: [] })
+		expect(osc.readOscPacket(bytes)).toEqual({ address: '/foo', args: [] })
 	})
 
 	test('a message without a type tag string, in a bundle, has no arguments', () => {
 		const message = oscString('/foo')
 		const bytes = [...oscString('#bundle'), 0, 0, 0, 0, 0, 0, 0, 1, ...int32(message.length), ...message]
-		expect(osc.readPacket(new Uint8Array(bytes))).toMatchObject({ packets: [{ address: '/foo', args: [] }] })
+		expect(osc.readOscPacket(new Uint8Array(bytes))).toMatchObject({ packets: [{ address: '/foo', args: [] }] })
 	})
 
 	test('a message with data but no type tag string throws', () => {
-		expect(() => osc.readMessage(new Uint8Array([...oscString('/foo'), 0, 0, 0, 1]))).toThrow(
+		expect(() => osc.readOscMessage(new Uint8Array([...oscString('/foo'), 0, 0, 0, 1]))).toThrow(
 			'A malformed type tag string was found'
 		)
 	})
 
-	test('readMessage throws for an address without a leading slash', () => {
+	test('readOscMessage throws for an address without a leading slash', () => {
 		const bytes = [...oscString('foo'), ...oscString(',')]
-		expect(() => osc.readMessage(new Uint8Array(bytes))).toThrow(
+		expect(() => osc.readOscMessage(new Uint8Array(bytes))).toThrow(
 			'A malformed OSC address was found while reading an OSC message. String was: foo'
 		)
 	})
@@ -200,8 +200,8 @@ describe('Messages', () => {
 		{ name: 'no address', message: { args: [] } },
 		{ name: 'an empty address', message: { address: '', args: [] } },
 		{ name: 'an address without a leading slash', message: { address: 'foo', args: [] } },
-	])('writeMessage throws for $name', ({ message }) => {
-		expect(() => untypedOsc.writeMessage(message)).toThrow('An OSC message must contain a valid address')
+	])('writeOscMessage throws for $name', ({ message }) => {
+		expect(() => untypedOsc.writeOscMessage(message)).toThrow('An OSC message must contain a valid address')
 	})
 
 	test('isValidMessage', () => {
@@ -250,20 +250,20 @@ const bundle: OscBundleInput = {
 const metadataOptions = { metadata: true }
 
 describe('Bundles', () => {
-	test('readBundle with nested bundles', () => {
+	test('readOscBundle with nested bundles', () => {
 		const view = new DataView(new Uint8Array(bundleBytes).buffer)
 		const offsetState = { idx: 0 }
-		expect(normalise(osc.readBundle(view, metadataOptions, offsetState))).toEqual(normalise(bundle))
+		expect(normalise(osc.readOscBundle(view, metadataOptions, offsetState))).toEqual(normalise(bundle))
 		expect(offsetState.idx).toBe(view.byteLength)
 	})
 
-	test('writeBundle with nested bundles', () => {
-		expect(toArray(osc.writeBundle(bundle, { metadata: true }))).toEqual(bundleBytes)
+	test('writeOscBundle with nested bundles', () => {
+		expect(toArray(osc.writeOscBundle(bundle, { metadata: true }))).toEqual(bundleBytes)
 	})
 
-	test('writeBundle with the default options', () => {
+	test('writeOscBundle with the default options', () => {
 		const simple: OscBundleInput = { timeTag: { raw: [0, 1] }, packets: [{ address: '/a', args: [1] }] }
-		expect(toArray(osc.writeBundle(simple))).toEqual([
+		expect(toArray(osc.writeOscBundle(simple))).toEqual([
 			...oscString('#bundle'),
 			0,
 			0,
@@ -284,61 +284,65 @@ describe('Bundles', () => {
 	})
 
 	describe('element sizes', () => {
-		const m1 = toArray(osc.writeMessage({ address: '/a', args: [1] }))
-		const m2 = toArray(osc.writeMessage({ address: '/b', args: [2] }))
+		const m1 = toArray(osc.writeOscMessage({ address: '/a', args: [1] }))
+		const m2 = toArray(osc.writeOscMessage({ address: '/b', args: [2] }))
 		const header = [...oscString('#bundle'), 0, 0, 0, 0, 0, 0, 0, 1]
 
 		test('the next element starts where the size says, even if the contents are shorter', () => {
 			const bytes = new Uint8Array([...header, ...int32(m1.length + 4), ...m1, 0, 0, 0, 0, ...int32(m2.length), ...m2])
-			const actual = osc.readPacket(bytes) as OscBundle
+			const actual = osc.readOscPacket(bytes) as OscBundle
 			expect(actual.packets.map((p) => (p as OscMessage).address)).toEqual(['/a', '/b'])
 		})
 
 		test('throws for an element that runs past the end of its bundle', () => {
 			const bytes = new Uint8Array([...header, ...int32(100), ...m1])
-			expect(() => osc.readPacket(bytes)).toThrow(
+			expect(() => osc.readOscPacket(bytes)).toThrow(
 				"A bundle element's size (100 bytes) runs past the end of its bundle, at offset 20"
 			)
 		})
 
 		test('throws for an element with a negative size', () => {
 			const bytes = new Uint8Array([...header, ...int32(-4), ...m1])
-			expect(() => osc.readPacket(bytes)).toThrow("A bundle element's size (-4 bytes) runs past the end")
+			expect(() => osc.readOscPacket(bytes)).toThrow("A bundle element's size (-4 bytes) runs past the end")
 		})
 
 		test('throws for an element whose contents run past its size', () => {
 			// An 8 byte address, in an element of 4 bytes
 			const bytes = new Uint8Array([...header, ...int32(4), ...oscString('/abcdef')])
-			expect(() => osc.readPacket(bytes)).toThrow("A bundle element's contents run past its size (4 bytes)")
+			expect(() => osc.readOscPacket(bytes)).toThrow("A bundle element's contents run past its size (4 bytes)")
 		})
 
 		test('an element in a nested bundle is limited to the nested bundle', () => {
 			const inner = [...header, ...int32(m1.length + 8), ...m1]
 			const bytes = new Uint8Array([...header, ...int32(inner.length), ...inner, ...int32(m2.length), ...m2])
-			expect(() => osc.readPacket(bytes)).toThrow("A bundle element's size (" + (m1.length + 8) + ' bytes) runs past')
+			expect(() => osc.readOscPacket(bytes)).toThrow(
+				"A bundle element's size (" + (m1.length + 8) + ' bytes) runs past'
+			)
 		})
 	})
 
 	test('an empty bundle', () => {
 		const empty: OscBundleInput = { timeTag: { raw: [3608492400, 0] }, packets: [] }
-		const written = osc.writeBundle(empty)
+		const written = osc.writeOscBundle(empty)
 		expect(toArray(written)).toEqual([...oscString('#bundle'), 215, 21, 57, 112, 0, 0, 0, 0])
-		expect(osc.readPacket(written, metadataOptions)).toEqual({
+		expect(osc.readOscPacket(written, metadataOptions)).toEqual({
 			timeTag: { raw: [3608492400, 0], native: 1399503600000 },
 			packets: [],
 		})
 	})
 
 	test('a bundle with a native time tag', () => {
-		const written = osc.writeBundle({ timeTag: { native: 1399503600000 }, packets: [] })
+		const written = osc.writeOscBundle({ timeTag: { native: 1399503600000 }, packets: [] })
 		expect(toArray(written).slice(8, 16)).toEqual([215, 21, 57, 112, 0, 0, 0, 0])
 	})
 
 	test.each([
 		{ name: 'no time tag', value: { packets: [] } },
-		{ name: 'no packets', value: { timeTag: osc.timeTag() } },
-	])('writeBundle throws for $name', ({ value }) => {
-		expect(() => untypedOsc.writeBundle(value)).toThrow("An OSC bundle must contain 'timeTag' and 'packets' properties")
+		{ name: 'no packets', value: { timeTag: osc.createOscTimeTag() } },
+	])('writeOscBundle throws for $name', ({ value }) => {
+		expect(() => untypedOsc.writeOscBundle(value)).toThrow(
+			"An OSC bundle must contain 'timeTag' and 'packets' properties"
+		)
 	})
 
 	test('isValidBundle', () => {
@@ -349,43 +353,43 @@ describe('Bundles', () => {
 })
 
 describe('Packets', () => {
-	test('readPacket of a message', () => {
-		const bytes = osc.writeMessage({ address: '/a', args: [{ type: 'i', value: 1 }] })
-		expect(osc.readPacket(bytes, metadataOptions)).toEqual({ address: '/a', args: [{ type: 'i', value: 1 }] })
+	test('readOscPacket of a message', () => {
+		const bytes = osc.writeOscMessage({ address: '/a', args: [{ type: 'i', value: 1 }] })
+		expect(osc.readOscPacket(bytes, metadataOptions)).toEqual({ address: '/a', args: [{ type: 'i', value: 1 }] })
 	})
 
-	test('readPacket of a bundle', () => {
-		expect(normalise(osc.readPacket(new Uint8Array(bundleBytes), metadataOptions))).toEqual(normalise(bundle))
+	test('readOscPacket of a bundle', () => {
+		expect(normalise(osc.readOscPacket(new Uint8Array(bundleBytes), metadataOptions))).toEqual(normalise(bundle))
 	})
 
-	test('readPacket throws for a packet that is neither a message nor a bundle', () => {
-		expect(() => osc.readPacket(new Uint8Array(oscString('foo')), {})).toThrow(
+	test('readOscPacket throws for a packet that is neither a message nor a bundle', () => {
+		expect(() => osc.readOscPacket(new Uint8Array(oscString('foo')), {})).toThrow(
 			"The header of an OSC packet didn't contain an OSC address or a #bundle string. Header was: foo"
 		)
 	})
 
-	test('readPacket needs no options, and ignores any that are given', () => {
-		const bytes = osc.writeMessage({ address: '/a', args: [1] })
+	test('readOscPacket needs no options, and ignores any that are given', () => {
+		const bytes = osc.writeOscMessage({ address: '/a', args: [1] })
 		const expected = { address: '/a', args: [{ type: 'f', value: 1 }] }
-		expect(osc.readPacket(bytes)).toEqual(expected)
-		expect(osc.readPacket(bytes, { metadata: false })).toEqual(expected)
+		expect(osc.readOscPacket(bytes)).toEqual(expected)
+		expect(osc.readOscPacket(bytes, { metadata: false })).toEqual(expected)
 	})
 
-	test('readPacket throws for a header starting with "#" other than "#bundle"', () => {
+	test('readOscPacket throws for a header starting with "#" other than "#bundle"', () => {
 		const bytes = [...oscString('#foo'), 0, 0, 0, 0, 0, 0, 0, 1]
-		expect(() => osc.readPacket(new Uint8Array(bytes))).toThrow(
+		expect(() => osc.readOscPacket(new Uint8Array(bytes))).toThrow(
 			"The header of an OSC packet didn't contain an OSC address or a #bundle string. Header was: #foo"
 		)
 	})
 
-	test('writePacket of a message and a bundle', () => {
+	test('writeOscPacket of a message and a bundle', () => {
 		const message: OscMessageInput = { address: '/a', args: [1] }
-		expect(osc.writePacket(message)).toEqual(osc.writeMessage(message))
-		expect(osc.writePacket(bundle, { metadata: true })).toEqual(osc.writeBundle(bundle, { metadata: true }))
+		expect(osc.writeOscPacket(message)).toEqual(osc.writeOscMessage(message))
+		expect(osc.writeOscPacket(bundle, { metadata: true })).toEqual(osc.writeOscBundle(bundle, { metadata: true }))
 	})
 
-	test('writePacket throws for something that is neither a message nor a bundle', () => {
-		expect(() => untypedOsc.writePacket({ foo: 1 })).toThrow(
+	test('writeOscPacket throws for something that is neither a message nor a bundle', () => {
+		expect(() => untypedOsc.writeOscPacket({ foo: 1 })).toThrow(
 			'The specified packet was not recognized as a valid OSC message or bundle'
 		)
 	})
@@ -401,13 +405,13 @@ describe('Packets', () => {
 				],
 			],
 		}
-		expect(osc.readPacket(osc.writePacket(message, metadataOptions), metadataOptions)).toEqual(message)
+		expect(osc.readOscPacket(osc.writeOscPacket(message, metadataOptions), metadataOptions)).toEqual(message)
 	})
 
 	test('gh-102: array-typed arguments without type metadata', () => {
 		const options = { metadata: false }
 		const message = { address: '/float/andArray', args: [440.0, [42.0, 47.0]] }
-		expect(osc.readPacket(osc.writePacket(message, options), options)).toEqual({
+		expect(osc.readOscPacket(osc.writeOscPacket(message, options), options)).toEqual({
 			address: '/float/andArray',
 			args: [
 				{ type: 'f', value: 440 },

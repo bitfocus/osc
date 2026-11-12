@@ -31,6 +31,18 @@
 			"types": "./dist/index.d.ts",
 			"default": "./dist/index.js"
 		},
+		"./codec": {
+			"types": "./dist/codec.d.ts",
+			"default": "./dist/codec.js"
+		},
+		"./transport": {
+			"types": "./dist/transport.d.ts",
+			"default": "./dist/transport.js"
+		},
+		"./framing": {
+			"types": "./dist/framing.d.ts",
+			"default": "./dist/framing.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"sideEffects": false,

@@ -257,12 +257,12 @@ describe('Type inference', () => {
 	})
 
 	test('gh-36: a bigint argument is written as an int64', () => {
-		const encoded = osc.writeMessage({ address: '/cat/slash', args: [9223372036854775807n] })
-		expect(osc.readMessage(encoded).args).toEqual([{ type: 'h', value: 9223372036854775807n }])
+		const encoded = osc.writeOscMessage({ address: '/cat/slash', args: [9223372036854775807n] })
+		expect(osc.readOscMessage(encoded).args).toEqual([{ type: 'h', value: 9223372036854775807n }])
 	})
 
 	test('a number can be written as an int64 when typed as one', () => {
-		const encoded = osc.writeMessage({ address: '/a', args: [{ type: 'h', value: -5 }] })
-		expect(osc.readMessage(encoded).args).toEqual([{ type: 'h', value: -5n }])
+		const encoded = osc.writeOscMessage({ address: '/a', args: [{ type: 'h', value: -5 }] })
+		expect(osc.readOscMessage(encoded).args).toEqual([{ type: 'h', value: -5n }])
 	})
 })

@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import net, { type AddressInfo } from 'node:net'
 import { afterEach, describe, expect, test, vi, type Mock } from 'vitest'
-import type { OscMessage, OscMessageInput, TCPSocketPort, TCPSocketPortOptions } from '../src/index.js'
+import type { OscMessage, OscMessageInput, OscTcpPort, OscTcpPortOptions } from '../src/index.js'
 import { ipv6Available, nextEvent, osc, slip, toArray } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
@@ -13,11 +13,11 @@ afterEach(async () => {
 	for (const fn of cleanup.splice(0)) await fn()
 })
 
-/** Starts a TCP server on an ephemeral port, wrapping each connection in a TCPSocketPort */
-async function startServer(options: TCPSocketPortOptions = {}, host = '127.0.0.1') {
-	const connections: TCPSocketPort[] = []
+/** Starts a TCP server on an ephemeral port, wrapping each connection in an OscTcpPort */
+async function startServer(options: OscTcpPortOptions = {}, host = '127.0.0.1') {
+	const connections: OscTcpPort[] = []
 	const server = net.createServer((socket) => {
-		connections.push(new osc.TCPSocketPort({ socket, ...options }))
+		connections.push(new osc.OscTcpPort({ socket, ...options }))
 		server.emit('oscConnection', connections[connections.length - 1])
 	})
 	await new Promise<void>((resolve) => server.listen(0, host, resolve))
@@ -28,9 +28,9 @@ async function startServer(options: TCPSocketPortOptions = {}, host = '127.0.0.1
 	return { server, port: (server.address() as AddressInfo).port }
 }
 
-/** Opens a client TCPSocketPort to the given port, resolving once it is connected */
-async function connectClient(port: number, options: TCPSocketPortOptions = {}): Promise<TCPSocketPort> {
-	const client = new osc.TCPSocketPort({ address: '127.0.0.1', port, ...options })
+/** Opens a client OscTcpPort to the given port, resolving once it is connected */
+async function connectClient(port: number, options: OscTcpPortOptions = {}): Promise<OscTcpPort> {
+	const client = new osc.OscTcpPort({ address: '127.0.0.1', port, ...options })
 	const ready = nextEvent(client, 'ready')
 	client.open()
 	await ready
@@ -45,28 +45,28 @@ function fakeSocket(): FakeSocket {
 	return Object.assign(new EventEmitter(), { write: vi.fn(), end: vi.fn(), connect: vi.fn() }) as unknown as FakeSocket
 }
 
-describe('TCPSocketPort', () => {
-	test('is a StreamPort, with defaults for its address and port', () => {
-		const port = new osc.TCPSocketPort({})
-		expect(port).toBeInstanceOf(osc.StreamPort)
+describe('OscTcpPort', () => {
+	test('is an OscStreamPort, with defaults for its address and port', () => {
+		const port = new osc.OscTcpPort({})
+		expect(port).toBeInstanceOf(osc.OscStreamPort)
 		expect(port.options).toEqual({ framing: 'slip', address: '127.0.0.1', port: 57121 })
 	})
 
 	test('takes localAddress and localPort as aliases for address and port', () => {
-		const port = new osc.TCPSocketPort({ localAddress: '10.0.0.1', localPort: 0 })
+		const port = new osc.OscTcpPort({ localAddress: '10.0.0.1', localPort: 0 })
 		expect(port.options).toMatchObject({ address: '10.0.0.1', port: 0 })
 	})
 
 	test('address and port take precedence over their aliases', () => {
-		const port = new osc.TCPSocketPort({ address: '10.0.0.2', port: 0, localAddress: '10.0.0.1', localPort: 1 })
+		const port = new osc.OscTcpPort({ address: '10.0.0.2', port: 0, localAddress: '10.0.0.1', localPort: 1 })
 		expect(port.options).toMatchObject({ address: '10.0.0.2', port: 0 })
 	})
 
 	test('can be constructed without options, and copies the options it is given', () => {
-		expect(new osc.TCPSocketPort().options).toEqual({ framing: 'slip', address: '127.0.0.1', port: 57121 })
+		expect(new osc.OscTcpPort().options).toEqual({ framing: 'slip', address: '127.0.0.1', port: 57121 })
 
 		const options = { port: 0 }
-		new osc.TCPSocketPort(options)
+		new osc.OscTcpPort(options)
 		expect(options).toEqual({ port: 0 })
 	})
 
@@ -122,7 +122,7 @@ describe('TCPSocketPort', () => {
 		const [serverPort] = await connection
 
 		const received = nextEvent(serverPort, 'message')
-		client.socket!.write(Buffer.from(osc.writePacket(message)))
+		client.socket!.write(Buffer.from(osc.writeOscPacket(message)))
 		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
@@ -135,7 +135,7 @@ describe('TCPSocketPort', () => {
 		const raw = nextEvent(serverPort, 'raw')
 		const received = nextEvent(serverPort, 'message')
 		client.send(message)
-		expect(toArray((await raw)[0])).toEqual(toArray(osc.writePacket(message)))
+		expect(toArray((await raw)[0])).toEqual(toArray(osc.writeOscPacket(message)))
 		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
@@ -159,7 +159,7 @@ describe('TCPSocketPort', () => {
 
 	test('open connects to the address and port given to open', async () => {
 		const { port } = await startServer()
-		const client = new osc.TCPSocketPort({ address: '127.0.0.2', port: 1 })
+		const client = new osc.OscTcpPort({ address: '127.0.0.2', port: 1 })
 		const ready = nextEvent(client, 'ready')
 		client.open('127.0.0.1', port)
 		await ready
@@ -183,7 +183,7 @@ describe('TCPSocketPort', () => {
 		const { port } = await startServer()
 		await cleanup.pop()!()
 
-		const client = new osc.TCPSocketPort({ address: '127.0.0.1', port })
+		const client = new osc.OscTcpPort({ address: '127.0.0.1', port })
 		const error = nextEvent(client, 'error')
 		client.open()
 		expect((await error)[0].code).toBe('ECONNREFUSED')
@@ -192,7 +192,7 @@ describe('TCPSocketPort', () => {
 	describe('with an existing socket', () => {
 		test('listens to the socket immediately', () => {
 			const socket = fakeSocket()
-			const port = new osc.TCPSocketPort({ socket })
+			const port = new osc.OscTcpPort({ socket })
 			expect(port.socket).toBe(socket)
 			for (const event of ['data', 'error', 'close', 'connect']) {
 				expect(socket.listenerCount(event)).toBe(1)
@@ -201,13 +201,13 @@ describe('TCPSocketPort', () => {
 
 		test('emits data, error, close and ready events from the socket', () => {
 			const socket = fakeSocket()
-			const port = new osc.TCPSocketPort({ socket })
+			const port = new osc.OscTcpPort({ socket })
 			const events: unknown[][] = []
 			for (const event of ['message', 'error', 'close', 'ready']) {
 				;(port as any).on(event, (...args: unknown[]) => events.push([event, ...args]))
 			}
 
-			socket.emit('data', Buffer.from(slip.encode(osc.writePacket(message))))
+			socket.emit('data', Buffer.from(slip.encode(osc.writeOscPacket(message))))
 			const err = new Error('boom')
 			socket.emit('error', err)
 			socket.emit('close', true)
@@ -223,14 +223,14 @@ describe('TCPSocketPort', () => {
 
 		test('open reconnects the existing socket', () => {
 			const socket = fakeSocket()
-			const port = new osc.TCPSocketPort({ socket, address: '10.0.0.1', port: 9000 })
+			const port = new osc.OscTcpPort({ socket, address: '10.0.0.1', port: 9000 })
 			port.open()
 			expect(socket.connect).toHaveBeenCalledWith(9000, '10.0.0.1')
 		})
 
 		test('sendRaw writes a Buffer to the socket', () => {
 			const socket = fakeSocket()
-			const port = new osc.TCPSocketPort({ socket })
+			const port = new osc.OscTcpPort({ socket })
 			port.sendRaw(new Uint8Array([1, 2, 3]))
 			const [written] = socket.write.mock.calls[0]
 			expect(Buffer.isBuffer(written)).toBe(true)
@@ -243,7 +243,7 @@ describe('TCPSocketPort', () => {
 			socket.write.mockImplementation(() => {
 				throw err
 			})
-			const port = new osc.TCPSocketPort({ socket })
+			const port = new osc.OscTcpPort({ socket })
 			const onError = vi.fn()
 			port.on('error', onError)
 			port.sendRaw(new Uint8Array([1]))
@@ -252,13 +252,13 @@ describe('TCPSocketPort', () => {
 
 		test('close ends the socket', () => {
 			const socket = fakeSocket()
-			new osc.TCPSocketPort({ socket }).close()
+			new osc.OscTcpPort({ socket }).close()
 			expect(socket.end).toHaveBeenCalledTimes(1)
 		})
 	})
 
 	test('sendRaw does nothing without a socket', () => {
-		const port = new osc.TCPSocketPort({})
+		const port = new osc.OscTcpPort({})
 		const onError = vi.fn()
 		port.on('error', onError)
 		port.send(message)
@@ -266,7 +266,7 @@ describe('TCPSocketPort', () => {
 	})
 
 	test('close does nothing without a socket', () => {
-		expect(() => new osc.TCPSocketPort({}).close()).not.toThrow()
+		expect(() => new osc.OscTcpPort({}).close()).not.toThrow()
 	})
 
 	test.skipIf(!ipv6Available)('sends a message over IPv6', async () => {

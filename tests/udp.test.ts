@@ -2,14 +2,14 @@ import type dgram from 'node:dgram'
 import dgramModule from 'node:dgram'
 import { EventEmitter } from 'node:events'
 import { afterEach, describe, expect, test, vi, type Mock } from 'vitest'
-import type { OscMessageInput, UDPPort, UDPPortOptions } from '../src/index.js'
+import type { OscMessageInput, OscUdpPort, OscUdpPortOptions } from '../src/index.js'
 import { ipv6Available, nextEvent, osc, toArray } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
 /** message, as it is received: arguments are read with their types */
 const receivedMessage = { address: '/test/freq', args: [{ type: 'f', value: 440 }] }
 
-const openPorts: UDPPort[] = []
+const openPorts: OscUdpPort[] = []
 afterEach(() => {
 	for (const port of openPorts.splice(0)) {
 		try {
@@ -21,8 +21,8 @@ afterEach(() => {
 })
 
 /** Opens a UDP port on an ephemeral localhost port, resolving once it is ready */
-async function openUDPPort(options: UDPPortOptions = {}): Promise<UDPPort> {
-	const port = new osc.UDPPort({ localAddress: '127.0.0.1', localPort: 0, ...options })
+async function openUDPPort(options: OscUdpPortOptions = {}): Promise<OscUdpPort> {
+	const port = new osc.OscUdpPort({ localAddress: '127.0.0.1', localPort: 0, ...options })
 	openPorts.push(port)
 	const ready = nextEvent(port, 'ready')
 	port.open()
@@ -51,10 +51,10 @@ function fakeSocket(): FakeSocket {
 	}) as unknown as FakeSocket
 }
 
-describe('UDPPort', () => {
+describe('OscUdpPort', () => {
 	test('has defaults for its addresses and ports', () => {
-		const port = new osc.UDPPort({})
-		expect(port).toBeInstanceOf(osc.Port)
+		const port = new osc.OscUdpPort({})
+		expect(port).toBeInstanceOf(osc.OscPort)
 		expect(port.options).toEqual({
 			localAddress: '127.0.0.1',
 			localPort: 57121,
@@ -66,11 +66,11 @@ describe('UDPPort', () => {
 
 	test('keeps the given addresses and ports, including port 0', () => {
 		const options = { localAddress: '0.0.0.0', localPort: 0, remoteAddress: '10.0.0.1', remotePort: 0 }
-		expect(new osc.UDPPort({ ...options }).options).toEqual(options)
+		expect(new osc.OscUdpPort({ ...options }).options).toEqual(options)
 	})
 
 	test('can be constructed without options, and copies the options it is given', () => {
-		expect(new osc.UDPPort().options).toEqual({
+		expect(new osc.OscUdpPort().options).toEqual({
 			localAddress: '127.0.0.1',
 			localPort: 57121,
 			remoteAddress: '127.0.0.1',
@@ -78,7 +78,7 @@ describe('UDPPort', () => {
 		})
 
 		const options = { localPort: 0 }
-		const port = new osc.UDPPort(options)
+		const port = new osc.OscUdpPort(options)
 		expect(options).toEqual({ localPort: 0 })
 		expect(port.options).not.toBe(options)
 	})
@@ -117,7 +117,7 @@ describe('UDPPort', () => {
 	test('a port can send to itself', async () => {
 		const port = await openUDPPort()
 		const received = nextEvent(port, 'message')
-		port.sendRaw(osc.writePacket(message), '127.0.0.1', port.socket!.address().port)
+		port.sendRaw(osc.writeOscPacket(message), '127.0.0.1', port.socket!.address().port)
 		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
@@ -127,7 +127,7 @@ describe('UDPPort', () => {
 		const raw = nextEvent(receiver, 'raw')
 		sender.send(message)
 		const [data, info] = await raw
-		expect(toArray(data)).toEqual(toArray(osc.writePacket(message)))
+		expect(toArray(data)).toEqual(toArray(osc.writeOscPacket(message)))
 		expect(info.port).toBe(sender.socket!.address().port)
 	})
 
@@ -147,7 +147,7 @@ describe('UDPPort', () => {
 
 	test('emits socket errors, such as failing to bind', async () => {
 		const first = await openUDPPort()
-		const second = new osc.UDPPort({ localAddress: '127.0.0.1', localPort: first.socket!.address().port })
+		const second = new osc.OscUdpPort({ localAddress: '127.0.0.1', localPort: first.socket!.address().port })
 		openPorts.push(second)
 
 		// Binding the same port twice fails unless reuseAddr is set
@@ -170,7 +170,7 @@ describe('UDPPort', () => {
 	})
 
 	test('listen does nothing without a socket', () => {
-		const port = new osc.UDPPort({})
+		const port = new osc.OscUdpPort({})
 		const onReady = vi.fn()
 		port.on('ready', onReady)
 		port.listen()
@@ -178,15 +178,15 @@ describe('UDPPort', () => {
 	})
 
 	test('sending without a socket emits an error', () => {
-		const port = new osc.UDPPort({})
+		const port = new osc.OscUdpPort({})
 		const onError = vi.fn()
 		port.on('error', onError)
 		port.send(message)
-		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed osc.Port object")
+		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed port")
 	})
 
 	test('close does nothing without a socket', () => {
-		expect(() => new osc.UDPPort({}).close()).not.toThrow()
+		expect(() => new osc.OscUdpPort({}).close()).not.toThrow()
 	})
 
 	test('after closing, sending emits an error, and the port can be opened again', async () => {
@@ -198,7 +198,7 @@ describe('UDPPort', () => {
 		const onError = vi.fn()
 		port.on('error', onError)
 		port.send(message)
-		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed osc.Port object")
+		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed port")
 		await closed
 
 		const ready = nextEvent(port, 'ready')
@@ -220,7 +220,7 @@ describe('UDPPort', () => {
 	describe('with an existing socket', () => {
 		test('is opened and ready immediately', () => {
 			const socket = fakeSocket()
-			const port = new osc.UDPPort({ socket })
+			const port = new osc.OscUdpPort({ socket })
 			expect(port.socket).toBe(socket)
 
 			// Ready was emitted inside the constructor, so it's the socket listeners that show it was opened
@@ -230,16 +230,16 @@ describe('UDPPort', () => {
 
 		test('emits data from the socket', () => {
 			const socket = fakeSocket()
-			const port = new osc.UDPPort({ socket })
+			const port = new osc.OscUdpPort({ socket })
 			const onMessage = vi.fn()
 			port.on('message', onMessage)
-			socket.emit('message', Buffer.from(osc.writePacket(message)), { port: 1 })
+			socket.emit('message', Buffer.from(osc.writeOscPacket(message)), { port: 1 })
 			expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, { port: 1 })
 		})
 
 		test('sendRaw passes the length and defaults the address and port', () => {
 			const socket = fakeSocket()
-			const port = new osc.UDPPort({ socket, remoteAddress: '10.0.0.1', remotePort: 9000 })
+			const port = new osc.OscUdpPort({ socket, remoteAddress: '10.0.0.1', remotePort: 9000 })
 
 			port.sendRaw(new Uint8Array(8))
 			expect(socket.send).toHaveBeenLastCalledWith(expect.any(Uint8Array), 0, 8, 9000, '10.0.0.1', expect.any(Function))
@@ -250,14 +250,14 @@ describe('UDPPort', () => {
 
 		test('sendRaw uses the length of something without a byteLength', () => {
 			const socket = fakeSocket()
-			const port = new osc.UDPPort({ socket })
+			const port = new osc.OscUdpPort({ socket })
 			port.sendRaw([1, 2, 3])
 			expect(socket.send.mock.calls[0][2]).toBe(3)
 		})
 
 		test('sendRaw emits send errors', () => {
 			const socket = fakeSocket()
-			const port = new osc.UDPPort({ socket })
+			const port = new osc.OscUdpPort({ socket })
 			const onError = vi.fn()
 			port.on('error', onError)
 
@@ -272,7 +272,7 @@ describe('UDPPort', () => {
 
 		test('close closes the socket', () => {
 			const socket = fakeSocket()
-			new osc.UDPPort({ socket }).close()
+			new osc.OscUdpPort({ socket }).close()
 			expect(socket.close).toHaveBeenCalledTimes(1)
 		})
 	})
@@ -280,20 +280,20 @@ describe('UDPPort', () => {
 	describe('setupMulticast', () => {
 		test('does nothing without multicast options', () => {
 			const port = { options: {}, socket: fakeSocket() }
-			osc.UDPPort.setupMulticast(port)
+			osc.OscUdpPort.setupMulticast(port)
 			expect(port.socket.setMulticastTTL).not.toHaveBeenCalled()
 			expect(port.socket.addMembership).not.toHaveBeenCalled()
 		})
 
 		test('sets the TTL, including 0', () => {
 			const port = { options: { multicastTTL: 0 }, socket: fakeSocket() }
-			osc.UDPPort.setupMulticast(port)
+			osc.OscUdpPort.setupMulticast(port)
 			expect(port.socket.setMulticastTTL).toHaveBeenCalledWith(0)
 		})
 
 		test('joins a single group given as a string', () => {
 			const port = { options: { multicastMembership: '239.255.255.250' }, socket: fakeSocket() }
-			osc.UDPPort.setupMulticast(port)
+			osc.OscUdpPort.setupMulticast(port)
 			expect(port.socket.addMembership).toHaveBeenCalledWith('239.255.255.250')
 			expect(port.options.multicastMembership).toEqual(['239.255.255.250'])
 		})
@@ -303,12 +303,12 @@ describe('UDPPort', () => {
 				options: { multicastMembership: ['239.0.0.1', { address: '239.0.0.2', interface: '10.0.0.5' }] },
 				socket: fakeSocket(),
 			}
-			osc.UDPPort.setupMulticast(port)
+			osc.OscUdpPort.setupMulticast(port)
 			expect(port.socket.addMembership.mock.calls).toEqual([['239.0.0.1'], ['239.0.0.2', '10.0.0.5']])
 		})
 
 		test('is applied when the port is bound', async () => {
-			const spy = vi.spyOn(osc.UDPPort, 'setupMulticast')
+			const spy = vi.spyOn(osc.OscUdpPort, 'setupMulticast')
 			try {
 				const port = await openUDPPort({ multicastTTL: 2 })
 				expect(spy).toHaveBeenCalledWith(port)
@@ -327,14 +327,14 @@ describe('UDPPort', () => {
 			{ name: 'an explicit type', options: { localAddress: '0.0.0.0', type: 'udp6' }, type: 'udp6' },
 			{ name: 'an explicit type overriding the address', options: { localAddress: '::', type: 'udp4' }, type: 'udp4' },
 		] as const)('the socket type for $name is $type', ({ options, type }) => {
-			expect(new osc.UDPPort({ ...options }).socketType()).toBe(type)
+			expect(new osc.OscUdpPort({ ...options }).socketType()).toBe(type)
 		})
 
 		test('open creates a socket of that type, passing ipv6Only through', () => {
 			const socket = fakeSocket()
 			const spy = vi.spyOn(dgramModule, 'createSocket').mockReturnValue(socket)
 			try {
-				const port = new osc.UDPPort({ localAddress: '::', localPort: 0, ipv6Only: true })
+				const port = new osc.OscUdpPort({ localAddress: '::', localPort: 0, ipv6Only: true })
 				const onReady = vi.fn()
 				port.on('ready', onReady)
 				port.open()
@@ -342,7 +342,7 @@ describe('UDPPort', () => {
 				expect(socket.bind).toHaveBeenCalledWith(0, '::', expect.any(Function))
 				expect(onReady).toHaveBeenCalled()
 
-				new osc.UDPPort({ localPort: 0 }).open()
+				new osc.OscUdpPort({ localPort: 0 }).open()
 				expect(spy).toHaveBeenLastCalledWith({ type: 'udp4', ipv6Only: undefined })
 			} finally {
 				spy.mockRestore()
@@ -351,7 +351,7 @@ describe('UDPPort', () => {
 
 		test('a dual-stack udp6 socket sends to IPv4 addresses as IPv4-mapped addresses', () => {
 			const socket = fakeSocket()
-			const port = new osc.UDPPort({ socket, type: 'udp6' })
+			const port = new osc.OscUdpPort({ socket, type: 'udp6' })
 			port.sendRaw(new Uint8Array(4), '192.0.2.1', 9000)
 			expect(socket.send.mock.calls[0][4]).toBe('::ffff:192.0.2.1')
 
@@ -362,7 +362,7 @@ describe('UDPPort', () => {
 
 		test('IPv6 addresses and hostnames are sent to as they are', () => {
 			const socket = fakeSocket()
-			const port = new osc.UDPPort({ socket, type: 'udp6' })
+			const port = new osc.OscUdpPort({ socket, type: 'udp6' })
 			port.sendRaw(new Uint8Array(4), '2001:db8::1', 9000)
 			port.sendRaw(new Uint8Array(4), '::ffff:192.0.2.1', 9000)
 			port.sendRaw(new Uint8Array(4), 'localhost', 9000)
@@ -371,11 +371,14 @@ describe('UDPPort', () => {
 
 		test('IPv4 addresses are not mapped for an IPv6 only socket, or a udp4 socket', () => {
 			const ipv6OnlySocket = fakeSocket()
-			new osc.UDPPort({ socket: ipv6OnlySocket, type: 'udp6', ipv6Only: true }).sendRaw(new Uint8Array(4), '192.0.2.1')
+			new osc.OscUdpPort({ socket: ipv6OnlySocket, type: 'udp6', ipv6Only: true }).sendRaw(
+				new Uint8Array(4),
+				'192.0.2.1'
+			)
 			expect(ipv6OnlySocket.send.mock.calls[0][4]).toBe('192.0.2.1')
 
 			const udp4Socket = fakeSocket()
-			new osc.UDPPort({ socket: udp4Socket }).sendRaw(new Uint8Array(4), '192.0.2.1')
+			new osc.OscUdpPort({ socket: udp4Socket }).sendRaw(new Uint8Array(4), '192.0.2.1')
 			expect(udp4Socket.send.mock.calls[0][4]).toBe('192.0.2.1')
 		})
 

@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
-import { int32, osc, toArray } from './helpers.js'
-
-const { sizeCount } = osc
+import { sizeCount } from '../src/framing.js'
+import { int32, toArray } from './helpers.js'
 
 describe('sizeCount.encode', () => {
 	test('prefixes a packet with its size, as a big-endian int32', () => {

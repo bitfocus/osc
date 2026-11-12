@@ -1,26 +1,37 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough, type Readable, type Writable } from 'node:stream'
 import { describe, expect, test, vi } from 'vitest'
-import type { OscMessageInput, PortOptions, StreamPortOptions } from '../src/index.js'
-import { nextEvent, osc, slip, toArray } from './helpers.js'
+import { readOscPacket, writeOscPacket } from '../src/codec.js'
+import { slip } from '../src/framing.js'
+import { createOscTimeTag, type OscMessageInput } from '../src/index.js'
+import {
+	fireClosedPortSendError,
+	OscPort,
+	OscRelay,
+	OscStreamPort,
+	type OscPortOptions,
+	type OscStreamPortOptions,
+} from '../src/transport.js'
+import { nextEvent, slip as slipModule, toArray } from './helpers.js'
 
-// These transports are built only on the public API, as an application (or a separate package) would build one.
+// These transports are built only on the package's public entry points, as an application (or a separate package)
+// would build one.
 // They stand in for the serial port and Web Socket transports that this fork removed.
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
 /** message, as it is received: arguments are read with their types */
 const receivedMessage = { address: '/test/freq', args: [{ type: 'f', value: 440 }] }
 
-interface PipePortOptions extends StreamPortOptions {
+interface PipePortOptions extends OscStreamPortOptions {
 	readable: Readable
 	writable: Writable
 }
 
 /**
- * A stream transport, in the style of the removed serial port transport: osc.StreamPort does the framing, so the
+ * A stream transport, in the style of the removed serial port transport: OscStreamPort does the framing, so the
  * transport only has to move bytes.
  */
-class PipePort extends osc.StreamPort {
+class PipePort extends OscStreamPort {
 	readonly readable: Readable
 	readonly writable: Writable
 
@@ -38,7 +49,7 @@ class PipePort extends osc.StreamPort {
 
 	override sendRaw(encoded: Uint8Array): void {
 		if (this.writable.destroyed) {
-			osc.fireClosedPortSendError(this)
+			fireClosedPortSendError(this)
 			return
 		}
 		this.writable.write(encoded)
@@ -59,15 +70,15 @@ interface MessageSocket extends EventEmitter<{ message: [data: Uint8Array, info:
 	send(data: Uint8Array): void
 }
 
-interface MessagePortOptions extends PortOptions {
+interface MessagePortOptions extends OscPortOptions {
 	socket: MessageSocket
 }
 
 /**
  * A message transport, in the style of the removed Web Socket transport: each message on the socket is one OSC
- * packet, so it extends the unframed osc.Port. Its packet info is typed by the Port's type parameter.
+ * packet, so it extends the unframed OscPort. Its packet info is typed by the OscPort's type parameter.
  */
-class MessagePort extends osc.Port<MessageInfo> {
+class MessagePort extends OscPort<MessageInfo> {
 	readonly socket: MessageSocket
 
 	constructor(options: MessagePortOptions) {
@@ -92,7 +103,7 @@ function socketPair(): [MessageSocket, MessageSocket] {
 }
 
 describe('A custom stream (SLIP framed) transport', () => {
-	function streamPortPair(options: StreamPortOptions = {}): [PipePort, PipePort, PassThrough] {
+	function streamPortPair(options: OscStreamPortOptions = {}): [PipePort, PipePort, PassThrough] {
 		const aToB = new PassThrough()
 		const bToA = new PassThrough()
 		const a = new PipePort({ ...options, readable: bToA, writable: aToB })
@@ -112,14 +123,14 @@ describe('A custom stream (SLIP framed) transport', () => {
 		expect((await received)[0]).toEqual({ address: '/a', args: [{ type: 'i', value: 1 }] })
 
 		const bundle = nextEvent(a, 'bundle')
-		b.send({ timeTag: osc.timeTag(0), packets: [{ address: '/b', args: [] }] })
+		b.send({ timeTag: createOscTimeTag(0), packets: [{ address: '/b', args: [] }] })
 		expect((await bundle)[0].packets).toEqual([{ address: '/b', args: [] }])
 	})
 
 	test('reassembles packets split across chunks', async () => {
 		const [, b, aToB] = streamPortPair()
 		const received = nextEvent(b, 'message')
-		const framed = toArray(slip.encode(osc.writePacket(message)))
+		const framed = toArray(slip.encode(writeOscPacket(message)))
 		aToB.write(Buffer.from(framed.slice(0, 3)))
 		aToB.write(Buffer.from(framed.slice(3)))
 		expect((await received)[0]).toEqual(receivedMessage)
@@ -131,7 +142,7 @@ describe('A custom stream (SLIP framed) transport', () => {
 		const onError = vi.fn()
 		a.on('error', onError)
 		a.send(message)
-		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed osc.Port object")
+		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed port")
 	})
 
 	test('emits close', async () => {
@@ -164,7 +175,7 @@ describe('A custom message (unframed) transport', () => {
 		const b = new MessagePort({ socket: socketB })
 		const c = new MessagePort({ socket: socketC })
 		const d = new MessagePort({ socket: socketD })
-		new osc.Relay(b, c)
+		new OscRelay(b, c)
 
 		const atD = nextEvent(d, 'message')
 		a.send(message)
@@ -172,15 +183,15 @@ describe('A custom message (unframed) transport', () => {
 	})
 })
 
-describe('Framing data without a Port', () => {
-	test('osc.slip encodes, and decodes into OSC packets', () => {
+describe('Framing data without a port', () => {
+	test('slip from the framing entry point encodes, and decodes into OSC packets', () => {
 		const onMessage = vi.fn()
-		const decoder = new osc.slip.Decoder({ onMessage })
-		decoder.decode(osc.slip.encode(osc.writePacket(message)))
-		expect(osc.readPacket(onMessage.mock.calls[0][0], {})).toEqual(receivedMessage)
+		const decoder = new slip.Decoder({ onMessage })
+		decoder.decode(slip.encode(writeOscPacket(message)))
+		expect(readOscPacket(onMessage.mock.calls[0][0])).toEqual(receivedMessage)
 	})
 
-	test('osc.slip is the codec used by StreamPort', () => {
-		expect(osc.slip).toBe(slip)
+	test('slip from the framing entry point is the codec used by OscStreamPort', () => {
+		expect(slip).toBe(slipModule)
 	})
 })

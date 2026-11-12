@@ -1,34 +1,35 @@
 import { EventEmitter } from 'node:events'
 import { describe, expect, test, vi } from 'vitest'
-import type { OscBundleInput, OscMessageInput, PortOptions, StreamPortOptions } from '../src/index.js'
+import type { OscBundleInput, OscMessageInput } from '../src/index.js'
+import type { OscPortOptions, OscStreamPortOptions } from '../src/transport.js'
 import { int32, nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
 /** message, as it is received: arguments are read with their types */
 const receivedMessage = { address: '/test/freq', args: [{ type: 'f', value: 440 }] }
-const encodedMessage = toArray(osc.writePacket(message))
+const encodedMessage = toArray(osc.writeOscPacket(message))
 
-/** A Port with a mocked sendRaw, standing in for a real transport */
-function mockPort(options?: PortOptions) {
-	return Object.assign(new osc.Port(options), { sendRaw: vi.fn() })
+/** An OscPort with a mocked sendRaw, standing in for a real transport */
+function mockPort(options?: OscPortOptions) {
+	return Object.assign(new osc.OscPort(options), { sendRaw: vi.fn() })
 }
 
-function mockStreamPort(options?: StreamPortOptions) {
-	return Object.assign(new osc.StreamPort(options), { sendRaw: vi.fn() })
+function mockStreamPort(options?: OscStreamPortOptions) {
+	return Object.assign(new osc.OscStreamPort(options), { sendRaw: vi.fn() })
 }
 
-describe('Port', () => {
+describe('OscPort', () => {
 	test('is an EventEmitter, with empty options by default', () => {
-		const port = new osc.Port()
+		const port = new osc.OscPort()
 		expect(port).toBeInstanceOf(EventEmitter)
 		expect(port.options).toEqual({})
 	})
 
-	test('a Port on its own has no transport, so open and sendRaw throw', () => {
-		const port = new osc.Port()
-		expect(() => port.open()).toThrow('open is not implemented by this Port')
-		expect(() => port.sendRaw(new Uint8Array(0))).toThrow('sendRaw is not implemented by this Port')
-		expect(() => port.send(message)).toThrow('sendRaw is not implemented by this Port')
+	test('an OscPort on its own has no transport, so open and sendRaw throw', () => {
+		const port = new osc.OscPort()
+		expect(() => port.open()).toThrow('open is not implemented by this port')
+		expect(() => port.sendRaw(new Uint8Array(0))).toThrow('sendRaw is not implemented by this port')
+		expect(() => port.send(message)).toThrow('sendRaw is not implemented by this port')
 	})
 
 	test('send encodes the packet and passes it to sendRaw as a Buffer, with any extra arguments', () => {
@@ -46,7 +47,7 @@ describe('Port', () => {
 		const port = mockPort({ metadata: true })
 		port.send({ address: '/a', args: [{ type: 'i', value: 1 }] })
 		expect(toArray(port.sendRaw.mock.calls[0][0])).toEqual(
-			toArray(osc.writePacket({ address: '/a', args: [{ type: 'i', value: 1 }] }, { metadata: true }))
+			toArray(osc.writeOscPacket({ address: '/a', args: [{ type: 'i', value: 1 }] }, { metadata: true }))
 		)
 	})
 
@@ -76,7 +77,7 @@ describe('Port', () => {
 	})
 
 	test('decodes incoming data, emitting raw, osc and message events', async () => {
-		const port = new osc.Port()
+		const port = new osc.OscPort()
 		const raw = nextEvent(port, 'raw')
 		const oscEvent = nextEvent(port, 'osc')
 		const messageEvent = nextEvent(port, 'message')
@@ -93,7 +94,7 @@ describe('Port', () => {
 	})
 
 	test('decodeOSC accepts an ArrayBuffer', () => {
-		const port = new osc.Port()
+		const port = new osc.OscPort()
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		port.decodeOSC(new Uint8Array(encodedMessage).buffer)
@@ -101,7 +102,7 @@ describe('Port', () => {
 	})
 
 	test('decoding a malformed packet emits an error and no message', () => {
-		const port = new osc.Port()
+		const port = new osc.OscPort()
 		const onMessage = vi.fn()
 		const onError = vi.fn()
 		port.on('message', onMessage)
@@ -117,11 +118,11 @@ describe('Port', () => {
 	})
 
 	test('gh-29: receiving Buffer-based blob messages', () => {
-		const port = new osc.Port({ metadata: true })
+		const port = new osc.OscPort({ metadata: true })
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		const blob = [0, 0, 0, 3, 0x63, 0x61, 0x74, 0]
-		port.decodeOSC(osc.writeMessage({ address: '/test/blobby', args: [{ type: 'b', value: Buffer.from(blob) }] }))
+		port.decodeOSC(osc.writeOscMessage({ address: '/test/blobby', args: [{ type: 'b', value: Buffer.from(blob) }] }))
 
 		const [received] = onMessage.mock.calls[0]
 		expect(received.address).toBe('/test/blobby')
@@ -140,12 +141,12 @@ describe('Packet events', () => {
 	}
 
 	test('a bundle emits bundle events, then a message event for each message, with its bundle time tag', () => {
-		const port = new osc.Port({ metadata: true })
+		const port = new osc.OscPort({ metadata: true })
 		const events: unknown[][] = []
 		port.on('bundle', (b, timeTag, info) => events.push(['bundle', b.timeTag.raw, timeTag?.raw, info]))
 		port.on('message', (m, timeTag, info) => events.push(['message', m.address, timeTag?.raw, info]))
 
-		port.decodeOSC(osc.writePacket(bundle, { metadata: true }), 'info')
+		port.decodeOSC(osc.writeOscPacket(bundle, { metadata: true }), 'info')
 
 		expect(events).toEqual([
 			['bundle', [3608492400, 0], undefined, 'info'],
@@ -157,7 +158,7 @@ describe('Packet events', () => {
 	})
 
 	test('firePacketEvents of a message', () => {
-		const port = new osc.Port()
+		const port = new osc.OscPort()
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		untypedOsc.firePacketEvents(port, { address: '/a' }, 'tt', 'info')
@@ -165,26 +166,22 @@ describe('Packet events', () => {
 	})
 
 	test('fireClosedPortSendError emits a default or custom message', () => {
-		const port = new osc.Port()
+		const port = new osc.OscPort()
 		const onError = vi.fn()
 		port.on('error', onError)
 		osc.fireClosedPortSendError(port)
 		osc.fireClosedPortSendError(port, 'custom')
 		expect(onError.mock.calls).toEqual([
-			["Can't send packets on a closed osc.Port object. Please open (or reopen) this Port by calling open()."],
+			["Can't send packets on a closed port. Please open (or reopen) it by calling open()."],
 			['custom'],
 		])
 	})
-
-	test('supportsSerial is false', () => {
-		expect(osc.supportsSerial).toBe(false)
-	})
 })
 
-describe('StreamPort', () => {
+describe('OscStreamPort', () => {
 	test('uses SLIP framing by default', () => {
-		const port = new osc.StreamPort()
-		expect(port).toBeInstanceOf(osc.Port)
+		const port = new osc.OscStreamPort()
+		expect(port).toBeInstanceOf(osc.OscPort)
 		expect(port.options).toEqual({ framing: 'slip' })
 	})
 
@@ -209,7 +206,7 @@ describe('StreamPort', () => {
 	})
 
 	test('decodes SLIP-framed messages split across several chunks', () => {
-		const port = new osc.StreamPort()
+		const port = new osc.OscStreamPort()
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 
@@ -223,7 +220,7 @@ describe('StreamPort', () => {
 	})
 
 	test('messages decoded from SLIP data have the packet info of the data that completed them', () => {
-		const port = new osc.StreamPort()
+		const port = new osc.OscStreamPort()
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		const framed = toArray(slip.encode(encodedMessage))
@@ -233,7 +230,7 @@ describe('StreamPort', () => {
 	})
 
 	test("with framing 'none', decodes each chunk as a packet", () => {
-		const port = new osc.StreamPort({ framing: 'none' })
+		const port = new osc.OscStreamPort({ framing: 'none' })
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		port.emit('data', new Uint8Array(encodedMessage), 'info')
@@ -242,7 +239,7 @@ describe('StreamPort', () => {
 	})
 
 	test('a SLIP decoder error is emitted as an Error', () => {
-		const port = new osc.StreamPort()
+		const port = new osc.OscStreamPort()
 		const decoder = port.decoder as InstanceType<typeof slip.Decoder>
 		decoder.maxMessageSize = 4
 		decoder.msgBuffer = new Uint8Array(2)
@@ -270,7 +267,7 @@ describe('StreamPort', () => {
 		})
 
 		test('decodes packets split across, and sharing, chunks, with the packet info of the data that completed them', () => {
-			const port = new osc.StreamPort({ framing: 'size-count' })
+			const port = new osc.OscStreamPort({ framing: 'size-count' })
 			const onMessage = vi.fn()
 			port.on('message', onMessage)
 
@@ -286,7 +283,7 @@ describe('StreamPort', () => {
 		})
 
 		test('emits an error for an invalid size', () => {
-			const port = new osc.StreamPort({ framing: 'size-count' })
+			const port = new osc.OscStreamPort({ framing: 'size-count' })
 			const onError = vi.fn()
 			port.on('error', onError)
 			port.emit('data', new Uint8Array(int32(-1)), undefined)
@@ -296,17 +293,13 @@ describe('StreamPort', () => {
 	})
 
 	test('throws for an unknown framing', () => {
-		expect(() => new osc.StreamPort({ framing: 'nope' as any })).toThrow(
+		expect(() => new osc.OscStreamPort({ framing: 'nope' as any })).toThrow(
 			"Unknown framing: nope. It must be 'slip', 'size-count' or 'none'"
 		)
 	})
-
-	test('SLIPPort is another name for StreamPort, for code ported from osc.js', () => {
-		expect(osc.SLIPPort).toBe(osc.StreamPort)
-	})
 })
 
-describe('Relay', () => {
+describe('OscRelay', () => {
 	function relayPorts() {
 		const port1 = mockPort()
 		const port2 = mockPort()
@@ -317,7 +310,7 @@ describe('Relay', () => {
 
 	test('relays parsed packets in both directions', () => {
 		const { port1, port2 } = relayPorts()
-		new osc.Relay(port1, port2)
+		new osc.OscRelay(port1, port2)
 
 		port1.decodeOSC(new Uint8Array(encodedMessage))
 		expect(toArray(port2.sendRaw.mock.calls[0][0])).toEqual(encodedMessage)
@@ -329,7 +322,7 @@ describe('Relay', () => {
 	test('with the raw option, relays the raw bytes with sendRaw', () => {
 		const { port1, port2 } = relayPorts()
 		const send = vi.spyOn(port2, 'send')
-		new osc.Relay(port1, port2, { raw: true })
+		new osc.OscRelay(port1, port2, { raw: true })
 		port1.decodeOSC(new Uint8Array(encodedMessage))
 		expect(toArray(port2.sendRaw.mock.calls[0][0])).toEqual(encodedMessage)
 		expect(send).not.toHaveBeenCalled()
@@ -337,23 +330,23 @@ describe('Relay', () => {
 
 	test('relays transformed packets', () => {
 		const { port1, port2 } = relayPorts()
-		new osc.Relay(port1, port2, { transform: (packet) => ({ ...packet, address: '/transformed' }) })
+		new osc.OscRelay(port1, port2, { transform: (packet) => ({ ...packet, address: '/transformed' }) })
 		port1.decodeOSC(new Uint8Array(encodedMessage))
 		expect(toArray(port2.sendRaw.mock.calls[0][0])).toEqual(
-			toArray(osc.writePacket({ address: '/transformed', args: [{ type: 'f', value: 440 }] }))
+			toArray(osc.writeOscPacket({ address: '/transformed', args: [{ type: 'f', value: 440 }] }))
 		)
 	})
 
 	test('open opens both ports', () => {
 		const { port1, port2 } = relayPorts()
-		new osc.Relay(port1, port2).open()
+		new osc.OscRelay(port1, port2).open()
 		expect(port1.open).toHaveBeenCalledTimes(1)
 		expect(port2.open).toHaveBeenCalledTimes(1)
 	})
 
 	test('close stops relaying and emits close', () => {
 		const { port1, port2 } = relayPorts()
-		const relay = new osc.Relay(port1, port2)
+		const relay = new osc.OscRelay(port1, port2)
 		const onClose = vi.fn()
 		relay.on('close', onClose)
 
@@ -366,7 +359,7 @@ describe('Relay', () => {
 
 	test('closes when either port closes', () => {
 		const { port1, port2 } = relayPorts()
-		const relay = new osc.Relay(port1, port2)
+		const relay = new osc.OscRelay(port1, port2)
 		const onClose = vi.fn()
 		relay.on('close', onClose)
 		port2.emit('close')
@@ -375,7 +368,7 @@ describe('Relay', () => {
 
 	test('listen again replaces the existing relaying', () => {
 		const { port1, port2 } = relayPorts()
-		const relay = new osc.Relay(port1, port2)
+		const relay = new osc.OscRelay(port1, port2)
 		const onClose = vi.fn()
 		relay.on('close', onClose)
 

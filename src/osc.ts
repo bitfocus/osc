@@ -24,8 +24,8 @@ import type {
 	OscOptions,
 	OscPacket,
 	OscPacketInput,
-	ReadTimeTag,
-	TimeTag,
+	OscReadTimeTag,
+	OscTimeTag,
 } from './types.js'
 
 export const SECS_70YRS = 2208988800
@@ -548,7 +548,7 @@ export function readImpulse(): number {
  * @param offsetState an offset state object containing the current index into dv
  * @return a time tag object containing both the raw NTP as well as the converted native (i.e. JS/UNIX) time
  */
-export function readTimeTag(dv: DataView, offsetState: OffsetState): ReadTimeTag {
+export function readTimeTag(dv: DataView, offsetState: OffsetState): OscReadTimeTag {
 	const secs1900 = readPrimitive(dv, 'getUint32', 4, offsetState)
 	const frac = readPrimitive(dv, 'getUint32', 4, offsetState)
 	const native = secs1900 === 0 && frac === 1 ? Date.now() : ntpToJSTime(secs1900, frac)
@@ -570,7 +570,7 @@ export function readTimeTag(dv: DataView, offsetState: OffsetState): ReadTimeTag
  * @param timeTag time tag object containing either a native JS timestamp (in ms) or a NTP timestamp pair
  * @return raw bytes for the written time tag
  */
-export function writeTimeTag(timeTag: TimeTag): Uint8Array {
+export function writeTimeTag(timeTag: OscTimeTag): Uint8Array {
 	const raw = timeTag.raw ? timeTag.raw : jsToNTPTime(timeTag.native as number)
 	const arr = new Uint8Array(8) // Two Unit32s.
 	const dv = new DataView(arr.buffer)
@@ -590,7 +590,7 @@ export function writeTimeTag(timeTag: TimeTag): Uint8Array {
  * @param now the number of milliseconds since epoch to use as the current time. Defaults to Date.now()
  * @return the time tag
  */
-export function timeTag(secs?: number, now?: number): { raw: [number, number] } {
+export function createOscTimeTag(secs?: number, now?: number): { raw: [number, number] } {
 	secs = secs ?? 0
 	now = now ?? Date.now()
 
@@ -897,7 +897,7 @@ export function collectArguments(
  * @param offsetState an offsetState object that stores the current offset into dv
  * @return the OSC message, formatted as a JavaScript object containing "address" and "args" properties
  */
-export function readMessage(data: ByteSource, _options?: OscOptions, offsetState?: OffsetState): OscMessage {
+export function readOscMessage(data: ByteSource, _options?: OscOptions, offsetState?: OffsetState): OscMessage {
 	const dv = dataView(data, (data as ArrayBufferView).byteOffset, (data as ArrayBufferView).byteLength)
 	offsetState = offsetState || {
 		idx: 0,
@@ -946,7 +946,7 @@ export function collectMessageParts(
  * @param options write options
  * @return an array of bytes containing the OSC message
  */
-export function writeMessage(msg: OscMessageInput, options?: OscOptions): Uint8Array {
+export function writeOscMessage(msg: OscMessageInput, options?: OscOptions): Uint8Array {
 	options = options || defaults
 
 	if (!isValidMessage(msg)) {
@@ -971,8 +971,8 @@ export function isValidMessage(msg: unknown): msg is OscMessageInput {
  * @param offsetState an offsetState object that stores the current offset into dv
  * @return the bundle or message object that was read
  */
-export function readBundle(dv: ByteSource, _options?: OscOptions, offsetState?: OffsetState): OscPacket {
-	return readPacket(dv, undefined, offsetState)
+export function readOscBundle(dv: ByteSource, _options?: OscOptions, offsetState?: OffsetState): OscPacket {
+	return readOscPacket(dv, undefined, offsetState)
 }
 
 // Unsupported, non-API function.
@@ -1010,7 +1010,7 @@ export function collectBundlePackets(
  * @param options write options
  * @return an array of bytes containing the message
  */
-export function writeBundle(bundle: OscBundleInput, options?: OscOptions): Uint8Array {
+export function writeOscBundle(bundle: OscBundleInput, options?: OscOptions): Uint8Array {
 	if (!isValidBundle(bundle)) {
 		throw new Error(
 			"An OSC bundle must contain 'timeTag' and 'packets' properties. " + 'Bundle was: ' + describeValue(bundle)
@@ -1044,7 +1044,7 @@ export function readBundleContents(dv: DataView, offsetState: OffsetState, len: 
 			)
 		}
 
-		const packet = readPacket(dv, undefined, offsetState, packetLen)
+		const packet = readOscPacket(dv, undefined, offsetState, packetLen)
 		if (offsetState.idx > packetLen) {
 			throw new Error(`A bundle element's contents run past its size (${packetSize} bytes)`)
 		}
@@ -1070,7 +1070,7 @@ export function readBundleContents(dv: DataView, offsetState: OffsetState, len: 
  * @param len the offset in data to read up to, for a bundle
  * @return a bundle or message object
  */
-export function readPacket(
+export function readOscPacket(
 	data: ByteSource,
 	_options?: OscOptions,
 	offsetState?: OffsetState,
@@ -1103,11 +1103,11 @@ export function readPacket(
  * @param options write options
  * @return an array of bytes containing the message
  */
-export function writePacket(packet: OscPacketInput, options?: OscOptions): Uint8Array {
+export function writeOscPacket(packet: OscPacketInput, options?: OscOptions): Uint8Array {
 	if (isValidMessage(packet)) {
-		return writeMessage(packet, options)
+		return writeOscMessage(packet, options)
 	} else if (isValidBundle(packet)) {
-		return writeBundle(packet, options)
+		return writeOscBundle(packet, options)
 	} else {
 		throw new Error(
 			'The specified packet was not recognized as a valid OSC message or bundle.' +

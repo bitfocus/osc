@@ -47,7 +47,7 @@ describe('dataView', () => {
 		const view = osc.dataView([9, 10, 11])
 		expect(view.byteLength).toBe(3)
 		expect(view.getUint8(2)).toBe(11)
-		expect(osc.readPacket([0x2f, 0, 0, 0, 0x2c, 0, 0, 0])).toEqual({ address: '/', args: [] })
+		expect(osc.readOscPacket([0x2f, 0, 0, 0, 0x2c, 0, 0, 0])).toEqual({ address: '/', args: [] })
 	})
 })
 

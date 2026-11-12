@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import type { OscMetaArgument, ReadTimeTag } from '../src/index.js'
+import type { OscMetaArgument, OscReadTimeTag } from '../src/index.js'
 import {
 	dv,
 	float32,
@@ -41,8 +41,8 @@ describe('Strings', () => {
 		expect(() => osc.writeString('a\u0000b')).toThrow(
 			'An OSC string cannot contain a null character. String was: "a\\u0000b"'
 		)
-		expect(() => osc.writeMessage({ address: '/a\u0000b' })).toThrow('An OSC string cannot contain a null character')
-		expect(() => osc.writeMessage({ address: '/a', args: ['x\u0000y'] })).toThrow(
+		expect(() => osc.writeOscMessage({ address: '/a\u0000b' })).toThrow('An OSC string cannot contain a null character')
+		expect(() => osc.writeOscMessage({ address: '/a', args: ['x\u0000y'] })).toThrow(
 			'An OSC string cannot contain a null character'
 		)
 	})
@@ -74,7 +74,7 @@ describe('Strings', () => {
 	test('gh-40: stringified ASCII-only object as string argument', () => {
 		const objectArg = { name: 'Hugo', color: 'White with tabby spots', age: 8 }
 		const msg = { address: '/thecat', args: JSON.stringify(objectArg) }
-		const decoded = osc.readMessage(osc.writeMessage(msg))
+		const decoded = osc.readOscMessage(osc.writeOscMessage(msg))
 		expect(decoded).toEqual({ address: '/thecat', args: [{ type: 's', value: msg.args }] })
 		expect(JSON.parse((decoded.args[0] as OscMetaArgument).value as string)).toEqual(objectArg)
 	})
@@ -82,14 +82,14 @@ describe('Strings', () => {
 	test('gh-40: stringified extended character object as string argument', () => {
 		const objectArg = { oneProperty: 'Murdock’s Fougere', anotherProperty: 'a gentleman’s look' }
 		const msg = { address: '/thecat', args: encodeURIComponent(JSON.stringify(objectArg)) }
-		const decoded = osc.readMessage(osc.writeMessage(msg))
+		const decoded = osc.readOscMessage(osc.writeOscMessage(msg))
 		expect(decoded).toEqual({ address: '/thecat', args: [{ type: 's', value: msg.args }] })
 		expect(JSON.parse(decodeURIComponent((decoded.args[0] as OscMetaArgument).value as string))).toEqual(objectArg)
 	})
 
 	test('utf-8 address and string argument round trip', () => {
-		expect(osc.readMessage(osc.writeMessage({ address: '/éé', args: [] }))).toEqual({ address: '/éé', args: [] })
-		expect(osc.readMessage(osc.writeMessage({ address: '/test', args: 'éé' }))).toEqual({
+		expect(osc.readOscMessage(osc.writeOscMessage({ address: '/éé', args: [] }))).toEqual({ address: '/éé', args: [] })
+		expect(osc.readOscMessage(osc.writeOscMessage({ address: '/test', args: 'éé' }))).toEqual({
 			address: '/test',
 			args: [{ type: 's', value: 'éé' }],
 		})
@@ -360,7 +360,7 @@ describe('Type-only arguments', () => {
 })
 
 describe('Time tags', () => {
-	const specs: Array<{ name: string; bytes: number[]; timeTag: ReadTimeTag }> = [
+	const specs: Array<{ name: string; bytes: number[]; timeTag: OscReadTimeTag }> = [
 		{
 			name: 'with seconds only',
 			// May 4, 2014 at 0:00:00 UTC.
@@ -423,40 +423,40 @@ describe('Time tags', () => {
 		test('now', () => {
 			vi.useFakeTimers({ now: 1399158000250 })
 			const expected = { raw: [3608146800, osc.TWO_32 / 4] }
-			expect(osc.timeTag()).toEqual(expected)
-			expect(osc.timeTag(0)).toEqual(expected)
+			expect(osc.createOscTimeTag()).toEqual(expected)
+			expect(osc.createOscTimeTag(0)).toEqual(expected)
 		})
 
 		test('in the future', () => {
-			expect(osc.timeTag(10.5, 1000)).toEqual({ raw: osc.jsToNTPTime(1000 + 10500) })
-			expect(osc.timeTag(0.1, 2000)).toEqual({ raw: osc.jsToNTPTime(2100) })
+			expect(osc.createOscTimeTag(10.5, 1000)).toEqual({ raw: osc.jsToNTPTime(1000 + 10500) })
+			expect(osc.createOscTimeTag(0.1, 2000)).toEqual({ raw: osc.jsToNTPTime(2100) })
 		})
 
 		test('in the past', () => {
-			expect(osc.timeTag(-1000, 9000)).toEqual({ raw: osc.jsToNTPTime(9000 - 1000000) })
-			expect(osc.timeTag(-0.25, 1000)).toEqual({ raw: osc.jsToNTPTime(750) })
+			expect(osc.createOscTimeTag(-1000, 9000)).toEqual({ raw: osc.jsToNTPTime(9000 - 1000000) })
+			expect(osc.createOscTimeTag(-0.25, 1000)).toEqual({ raw: osc.jsToNTPTime(750) })
 		})
 
 		test('carries fractions of a second over into whole seconds', () => {
-			expect(osc.timeTag(0.75, 1500)).toEqual({ raw: [osc.SECS_70YRS + 2, osc.TWO_32 / 4] })
+			expect(osc.createOscTimeTag(0.75, 1500)).toEqual({ raw: [osc.SECS_70YRS + 2, osc.TWO_32 / 4] })
 		})
 
 		test('carries a fraction that rounds up to a whole second', () => {
-			expect(osc.timeTag(0.99999999999, 1000)).toEqual({ raw: [osc.SECS_70YRS + 2, 0] })
+			expect(osc.createOscTimeTag(0.99999999999, 1000)).toEqual({ raw: [osc.SECS_70YRS + 2, 0] })
 		})
 
 		test('relative to a provided time', () => {
 			const time = Date.parse('2015-01-01')
-			expect(osc.timeTag(0, time)).toEqual({ raw: osc.jsToNTPTime(time) })
+			expect(osc.createOscTimeTag(0, time)).toEqual({ raw: osc.jsToNTPTime(time) })
 		})
 
 		test('relative to a "now" of 0 (the epoch)', () => {
 			vi.useFakeTimers({ now: 5000 })
-			expect(osc.timeTag(0, 0)).toEqual({ raw: [osc.SECS_70YRS, 0] })
+			expect(osc.createOscTimeTag(0, 0)).toEqual({ raw: [osc.SECS_70YRS, 0] })
 		})
 
 		test('carries fractions summing to exactly one second over into the seconds', () => {
-			expect(osc.timeTag(0.5, 500)).toEqual({ raw: [osc.SECS_70YRS + 1, 0] })
+			expect(osc.createOscTimeTag(0.5, 500)).toEqual({ raw: [osc.SECS_70YRS + 1, 0] })
 		})
 	})
 })

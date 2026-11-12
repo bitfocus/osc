@@ -15,13 +15,13 @@ export type OscArgumentType = 'i' | 'h' | 'f' | 's' | 'S' | 'b' | 't' | 'T' | 'F
  * `native` is a JavaScript timestamp, in milliseconds since 1970.
  * Time tags that are read have both; time tags to be written need only one of them.
  */
-export interface TimeTag {
+export interface OscTimeTag {
 	raw?: [seconds: number, fractions: number]
 	native?: number
 }
 
 /** A time tag, as read from OSC data */
-export interface ReadTimeTag {
+export interface OscReadTimeTag {
 	raw: [seconds: number, fractions: number]
 	native: number
 }
@@ -45,7 +45,7 @@ export interface OscArgumentValues {
 	s: string
 	S: string
 	b: Uint8Array
-	t: ReadTimeTag
+	t: OscReadTimeTag
 	T: true
 	F: false
 	N: null
@@ -64,7 +64,7 @@ export interface OscArgumentInputValues {
 	s: string
 	S: string
 	b: OscBinaryInput
-	t: TimeTag
+	t: OscTimeTag
 	T: unknown
 	F: unknown
 	N: unknown
@@ -128,13 +128,13 @@ export interface OscMessageInput {
 
 /** An OSC bundle, as read */
 export interface OscBundle {
-	timeTag: ReadTimeTag
+	timeTag: OscReadTimeTag
 	packets: OscPacket[]
 }
 
 /** An OSC bundle, for writing */
 export interface OscBundleInput {
-	timeTag: TimeTag
+	timeTag: OscTimeTag
 	packets: OscPacketInput[]
 }
 

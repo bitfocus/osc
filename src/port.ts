@@ -8,21 +8,16 @@
  */
 
 import { EventEmitter } from 'node:events'
-import { byteArray, nativeBuffer, readPacket, writePacket, type ByteSource } from './osc.js'
+import { byteArray, nativeBuffer, readOscPacket, writeOscPacket, type ByteSource } from './osc.js'
 import * as sizeCount from './size-count.js'
 import * as slip from './slip.js'
-import type { OscBundle, OscMessage, OscOptions, OscPacket, OscPacketInput, ReadTimeTag } from './types.js'
-
-export const supportsSerial = false
-
-// The stream framings used by StreamPort, for transports that need to frame data themselves.
-export { sizeCount, slip }
+import type { OscBundle, OscMessage, OscOptions, OscPacket, OscPacketInput, OscReadTimeTag } from './types.js'
 
 /**
- * The events emitted by a Port. `TInfo` is the information about where a packet came from that the transport passes
+ * The events emitted by an OscPort. `TInfo` is the information about where a packet came from that the transport passes
  * along, such as the remote address and port of a UDP datagram.
  */
-export interface PortEvents<TInfo = unknown> {
+export interface OscPortEvents<TInfo = unknown> {
 	/** The port is ready to send and receive */
 	ready: []
 	/** The underlying connection has been opened (emitted by transports, before ready) */
@@ -40,18 +35,18 @@ export interface PortEvents<TInfo = unknown> {
 	/** Each packet received, whether a message or a bundle */
 	osc: [packet: OscPacket, info: TInfo | undefined]
 	/** Each message received, including those inside bundles (along with the time tag of their bundle) */
-	message: [message: OscMessage, timeTag: ReadTimeTag | undefined, info: TInfo | undefined]
+	message: [message: OscMessage, timeTag: OscReadTimeTag | undefined, info: TInfo | undefined]
 	/** Each bundle received, including nested bundles (along with the time tag of their parent bundle) */
-	bundle: [bundle: OscBundle, timeTag: ReadTimeTag | undefined, info: TInfo | undefined]
+	bundle: [bundle: OscBundle, timeTag: OscReadTimeTag | undefined, info: TInfo | undefined]
 }
 
-export type PortOptions = OscOptions
+export type OscPortOptions = OscOptions
 
 // Unsupported, non-API function.
 export function firePacketEvents<TInfo>(
-	port: Port<TInfo>,
+	port: OscPort<TInfo>,
 	packet: OscPacket,
-	timeTag: ReadTimeTag | undefined,
+	timeTag: OscReadTimeTag | undefined,
 	packetInfo: TInfo | undefined
 ): void {
 	if ((packet as OscMessage).address) {
@@ -63,9 +58,9 @@ export function firePacketEvents<TInfo>(
 
 // Unsupported, non-API function.
 export function fireBundleEvents<TInfo>(
-	port: Port<TInfo>,
+	port: OscPort<TInfo>,
 	bundle: OscBundle,
-	timeTag: ReadTimeTag | undefined,
+	timeTag: OscReadTimeTag | undefined,
 	packetInfo: TInfo | undefined
 ): void {
 	port.emit('bundle', bundle, timeTag, packetInfo)
@@ -76,8 +71,8 @@ export function fireBundleEvents<TInfo>(
 }
 
 /** Emits the error for an attempt to send on a port that isn't open */
-export function fireClosedPortSendError(port: Port<any>, msg?: string): void {
-	msg = msg || "Can't send packets on a closed osc.Port object. Please open (or reopen) this Port by calling open()."
+export function fireClosedPortSendError(port: OscPort<any>, msg?: string): void {
+	msg = msg || "Can't send packets on a closed port. Please open (or reopen) it by calling open()."
 
 	port.emit('error', msg)
 }
@@ -88,17 +83,17 @@ export function fireClosedPortSendError(port: Port<any>, msg?: string): void {
  * A transport implements sendRaw(), and emits data events for the data it receives (and ready, close and error as
  * appropriate). Encoding, decoding, and the osc, message, bundle and raw events are handled here.
  */
-export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
-	options: PortOptions
+export class OscPort<TInfo = unknown> extends EventEmitter<OscPortEvents<TInfo>> {
+	options: OscPortOptions
 
-	constructor(options?: PortOptions) {
+	constructor(options?: OscPortOptions) {
 		super()
 		// A copy, so that the defaults filled in by transports aren't written into the caller's object
 		this.options = { ...options }
 		this.on('data', (data, packetInfo) => this.handleData(data, packetInfo))
 	}
 
-	/** Decodes the data a transport has received; StreamPort replaces this to reassemble framed packets */
+	/** Decodes the data a transport has received; OscStreamPort replaces this to reassemble framed packets */
 	protected handleData(data: ByteSource, packetInfo: TInfo | undefined): void {
 		this.decodeOSC(data, packetInfo)
 	}
@@ -116,12 +111,12 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 
 	/** Opens the underlying connection. Transports implement this. */
 	open(..._args: any[]): void {
-		throw new Error('open is not implemented by this Port')
+		throw new Error('open is not implemented by this port')
 	}
 
 	/** Sends encoded bytes. Transports implement this. */
 	sendRaw(_encoded: Uint8Array, ..._args: any[]): void {
-		throw new Error('sendRaw is not implemented by this Port')
+		throw new Error('sendRaw is not implemented by this port')
 	}
 
 	/**
@@ -131,7 +126,7 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 		let encoded: Uint8Array | undefined
 
 		try {
-			encoded = writePacket(packet, this.options)
+			encoded = writeOscPacket(packet, this.options)
 		} catch (err) {
 			this.emit('error', err as Error)
 		}
@@ -147,7 +142,7 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 		this.emit('raw', bytes, packetInfo)
 
 		try {
-			const packet = readPacket(bytes)
+			const packet = readOscPacket(bytes)
 			this.emit('osc', packet, packetInfo)
 			firePacketEvents(this, packet, undefined, packetInfo)
 		} catch (err) {
@@ -164,18 +159,15 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
  *   conforms to neither version of OSC, and only works while each packet arrives in a chunk of its own (small packets,
  *   sent far enough apart), but some devices expect it.
  */
-export type StreamFraming = 'slip' | 'size-count' | 'none'
+export type OscStreamFraming = 'slip' | 'size-count' | 'none'
 
-export interface StreamPortOptions extends PortOptions {
+export interface OscStreamPortOptions extends OscPortOptions {
 	/** How packets are delimited in the stream, both those sent and those received. Defaults to 'slip'. */
-	framing?: StreamFraming
+	framing?: OscStreamFraming
 }
 
-/** @deprecated Use StreamPortOptions */
-export type SLIPPortOptions = StreamPortOptions
-
 /** Something that reassembles packets from a stream, such as slip.Decoder or sizeCount.Decoder */
-export interface StreamDecoder {
+export interface OscStreamDecoder {
 	decode(data: Uint8Array): void
 }
 
@@ -183,14 +175,14 @@ export interface StreamDecoder {
  * The base of stream-based transports, such as TCP. Outgoing packets are framed, and incoming packets are reassembled
  * from data that may arrive split across chunks, as given by the framing option.
  */
-export class StreamPort<TInfo = unknown> extends Port<TInfo> {
-	declare options: StreamPortOptions
+export class OscStreamPort<TInfo = unknown> extends OscPort<TInfo> {
+	declare options: OscStreamPortOptions
 	/** Reassembles received packets; undefined for framing 'none' */
-	decoder: StreamDecoder | undefined
+	decoder: OscStreamDecoder | undefined
 	// The packet info of the data being fed to the decoder, for the messages it completes
 	#framedPacketInfo: TInfo | undefined
 
-	constructor(options?: StreamPortOptions) {
+	constructor(options?: OscStreamPortOptions) {
 		super(options)
 		const o = this.options
 		o.framing = o.framing ?? 'slip'
@@ -225,7 +217,7 @@ export class StreamPort<TInfo = unknown> extends Port<TInfo> {
 		let framed: Uint8Array | undefined
 
 		try {
-			const encoded = writePacket(packet, this.options)
+			const encoded = writeOscPacket(packet, this.options)
 			switch (this.options.framing) {
 				case 'slip':
 					framed = slip.encode(encoded)
@@ -256,11 +248,6 @@ export class StreamPort<TInfo = unknown> extends Port<TInfo> {
 		}
 	}
 }
-
-/** @deprecated Use StreamPort, which this is another name for */
-export const SLIPPort = StreamPort
-/** @deprecated Use StreamPort, which this is another name for */
-export type SLIPPort<TInfo = unknown> = StreamPort<TInfo>
 
 /** Something that can be relayed from: an EventEmitter */
 export interface RelaySource {
@@ -319,25 +306,25 @@ export function stopRelaying(from: RelaySource, relaySpec: RelaySpec): void {
 	from.removeListener(relaySpec.eventName, relaySpec.listener)
 }
 
-export interface RelayOptions {
-	/** Relay the raw bytes of each packet, with sendRaw, rather than decoding and re-encoding it. Defaults to false. */
+export interface OscRelayOptions {
+	/** OscRelay the raw bytes of each packet, with sendRaw, rather than decoding and re-encoding it. Defaults to false. */
 	raw?: boolean
 	/** Transforms each packet (or, with raw, its bytes) before it is relayed */
 	transform?: (data: any) => unknown
 }
 
-export interface RelayEvents {
-	close: [port1: Port<any>, port2: Port<any>]
+export interface OscRelayEvents {
+	close: [port1: OscPort<any>, port2: OscPort<any>]
 }
 
 /**
- * A Relay connects two sources of OSC data together,
+ * An OscRelay connects two sources of OSC data together,
  * relaying all OSC messages received by each port to the other.
  */
-export class Relay extends EventEmitter<RelayEvents> {
-	options: RelayOptions
-	port1: Port<any>
-	port2: Port<any>
+export class OscRelay extends EventEmitter<OscRelayEvents> {
+	options: OscRelayOptions
+	port1: OscPort<any>
+	port2: OscPort<any>
 	port1Spec: RelaySpec | undefined
 	port2Spec: RelaySpec | undefined
 
@@ -346,7 +333,7 @@ export class Relay extends EventEmitter<RelayEvents> {
 	 * @param port2 the second port to relay
 	 * @param options the configuration options for this relay
 	 */
-	constructor(port1: Port<any>, port2: Port<any>, options?: RelayOptions) {
+	constructor(port1: OscPort<any>, port2: OscPort<any>, options?: OscRelayOptions) {
 		super()
 		this.options = options || {}
 

@@ -8,9 +8,9 @@
  */
 
 import net from 'node:net'
-import { StreamPort, type StreamPortOptions } from './transports.js'
+import { OscStreamPort, type OscStreamPortOptions } from './port.js'
 
-export interface TCPSocketPortOptions extends StreamPortOptions {
+export interface OscTcpPortOptions extends OscStreamPortOptions {
 	/** The address to connect to. Defaults to localAddress, or else 127.0.0.1. */
 	address?: string
 	/** The port to connect to. Defaults to localPort, or else 57121. */
@@ -26,11 +26,11 @@ export interface TCPSocketPortOptions extends StreamPortOptions {
 /**
  * Sends and receives OSC packets over a TCP connection, framed as given by the framing option (SLIP by default).
  */
-export class TCPSocketPort extends StreamPort<undefined> {
-	declare options: TCPSocketPortOptions
+export class OscTcpPort extends OscStreamPort<undefined> {
+	declare options: OscTcpPortOptions
 	socket: net.Socket | undefined
 
-	constructor(options?: TCPSocketPortOptions) {
+	constructor(options?: OscTcpPortOptions) {
 		super(options)
 
 		const o = this.options

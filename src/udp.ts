@@ -9,9 +9,9 @@
 
 import dgram from 'node:dgram'
 import net from 'node:net'
-import { fireClosedPortSendError, Port, type PortOptions } from './transports.js'
+import { fireClosedPortSendError, OscPort, type OscPortOptions } from './port.js'
 
-export interface UDPPortOptions extends PortOptions {
+export interface OscUdpPortOptions extends OscPortOptions {
 	/**
 	 * The type of socket: 'udp4' for IPv4, or 'udp6' for IPv6. Defaults to 'udp6' when localAddress is an IPv6
 	 * address (such as '::'), and 'udp4' otherwise.
@@ -48,11 +48,11 @@ export interface UDPPortOptions extends PortOptions {
  *
  * After closing, the port can be opened again.
  */
-export class UDPPort extends Port<dgram.RemoteInfo> {
-	declare options: UDPPortOptions
+export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
+	declare options: OscUdpPortOptions
 	socket: dgram.Socket | undefined
 
-	constructor(options?: UDPPortOptions) {
+	constructor(options?: OscUdpPortOptions) {
 		super(options)
 
 		this.options.localAddress = this.options.localAddress || '127.0.0.1'
@@ -84,7 +84,7 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 		})
 
 		socket.bind(this.options.localPort, this.options.localAddress, () => {
-			UDPPort.setupMulticast(this)
+			OscUdpPort.setupMulticast(this)
 
 			if (this.options.broadcast) {
 				socket.setBroadcast(this.options.broadcast)
@@ -157,7 +157,7 @@ export class UDPPort extends Port<dgram.RemoteInfo> {
 		}
 	}
 
-	static setupMulticast(that: { options: UDPPortOptions; socket: dgram.Socket | undefined }): void {
+	static setupMulticast(that: { options: OscUdpPortOptions; socket: dgram.Socket | undefined }): void {
 		const socket = that.socket as dgram.Socket
 
 		if (that.options.multicastTTL !== undefined) {

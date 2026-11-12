@@ -1,9 +1,18 @@
 import dgram from 'node:dgram'
 import type { EventEmitter } from 'node:events'
-import * as osc from '../src/index.js'
+import * as codec from '../src/osc.js'
+import * as port from '../src/port.js'
 import * as slip from '../src/slip.js'
+import * as tcp from '../src/tcp.js'
+import * as udp from '../src/udp.js'
 
-export { osc, slip }
+export { slip }
+
+/**
+ * Everything in the library, including what isn't exported from the package, for testing. The public entry points are
+ * tested in api.test.ts.
+ */
+export const osc = { ...codec, ...port, ...udp, ...tcp }
 
 /**
  * Some tests deliberately pass values the types don't allow, to pin how invalid input is handled.

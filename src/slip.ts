@@ -24,11 +24,11 @@ export interface EncodeOptions {
 	bufferPadding?: number
 }
 
-export function byteArray(data: ArrayBuffer | ArrayLike<number>, offset?: number, length?: number): ArrayLike<number> {
+function byteArray(data: ArrayBuffer | ArrayLike<number>, offset?: number, length?: number): ArrayLike<number> {
 	return data instanceof ArrayBuffer ? new Uint8Array(data, offset, length) : data
 }
 
-export function expandByteArray(arr: Uint8Array): Uint8Array {
+function expandByteArray(arr: Uint8Array): Uint8Array {
 	const expanded = new Uint8Array(arr.length * 2)
 	expanded.set(arr)
 
@@ -36,7 +36,7 @@ export function expandByteArray(arr: Uint8Array): Uint8Array {
 }
 
 // Copies a range of one of this module's own (zero-offset) buffers.
-export function sliceByteArray(arr: Uint8Array, start: number, end: number): Uint8Array {
+function sliceByteArray(arr: Uint8Array, start: number, end: number): Uint8Array {
 	return new Uint8Array(arr.buffer.slice(start, end))
 }
 
