@@ -51,11 +51,11 @@ describe('OscPort', () => {
 		)
 	})
 
-	test('encodeOSC emits an error, and returns undefined, for an invalid packet', () => {
+	test('encodePacket emits an error, and returns undefined, for an invalid packet', () => {
 		const port = mockPort()
 		const onError = vi.fn()
 		port.on('error', onError)
-		expect(port.encodeOSC({ address: 'nope' })).toBeUndefined()
+		expect((port as any).encodePacket({ address: 'nope' })).toBeUndefined()
 		expect(onError.mock.calls[0][0].message).toContain('packet was not recognized as a valid OSC')
 	})
 
@@ -63,7 +63,7 @@ describe('OscPort', () => {
 		const port = mockPort()
 		const onError = vi.fn()
 		port.on('error', onError)
-		expect(port.encodeOSC({ buffer: message } as any)).toBeUndefined()
+		expect((port as any).encodePacket({ buffer: message } as any)).toBeUndefined()
 		expect(onError).toHaveBeenCalledTimes(1)
 	})
 
@@ -93,11 +93,11 @@ describe('OscPort', () => {
 		expect(await messageEvent).toEqual([receivedMessage, undefined, info])
 	})
 
-	test('decodeOSC accepts an ArrayBuffer', () => {
+	test('decodePacket accepts an ArrayBuffer', () => {
 		const port = new osc.OscPort()
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
-		port.decodeOSC(new Uint8Array(encodedMessage).buffer)
+		;(port as any).decodePacket(new Uint8Array(encodedMessage).buffer)
 		expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, undefined)
 	})
 
@@ -111,7 +111,7 @@ describe('OscPort', () => {
 		// "0oscillator/4/frequency" | ",f" | 440
 		const malformed = [...encodedMessage]
 		malformed[0] = 0
-		port.decodeOSC(new Uint8Array(malformed))
+		;(port as any).decodePacket(new Uint8Array(malformed))
 
 		expect(onMessage).not.toHaveBeenCalled()
 		expect(onError.mock.calls[0][0].message).toContain("packet didn't contain an OSC address or a #bundle string")
@@ -122,7 +122,9 @@ describe('OscPort', () => {
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		const blob = [0, 0, 0, 3, 0x63, 0x61, 0x74, 0]
-		port.decodeOSC(osc.writeOscMessage({ address: '/test/blobby', args: [{ type: 'b', value: Buffer.from(blob) }] }))
+		;(port as any).decodePacket(
+			osc.writeOscMessage({ address: '/test/blobby', args: [{ type: 'b', value: Buffer.from(blob) }] })
+		)
 
 		const [received] = onMessage.mock.calls[0]
 		expect(received.address).toBe('/test/blobby')
@@ -146,7 +148,7 @@ describe('Packet events', () => {
 		port.on('bundle', (b, timeTag, info) => events.push(['bundle', b.timeTag.raw, timeTag?.raw, info]))
 		port.on('message', (m, timeTag, info) => events.push(['message', m.address, timeTag?.raw, info]))
 
-		port.decodeOSC(osc.writeOscPacket(bundle, { metadata: true }), 'info')
+		;(port as any).decodePacket(osc.writeOscPacket(bundle, { metadata: true }), 'info')
 
 		expect(events).toEqual([
 			['bundle', [3608492400, 0], undefined, 'info'],
@@ -186,9 +188,9 @@ describe('OscStreamPort', () => {
 		expect(port.options).toEqual({ framing: 'slip' })
 	})
 
-	test('encodeOSC frames the packet with SLIP', () => {
+	test('encodePacket frames the packet with SLIP', () => {
 		const port = mockStreamPort()
-		const encoded = port.encodeOSC(message)
+		const encoded = (port as any).encodePacket(message)
 		expect(toArray(encoded)).toEqual(toArray(slip.encode(encodedMessage)))
 	})
 
@@ -198,11 +200,11 @@ describe('OscStreamPort', () => {
 		expect(toArray(port.sendRaw.mock.calls[0][0])).toEqual(toArray(slip.encode(encodedMessage)))
 	})
 
-	test('encodeOSC emits an error, and returns undefined, for an invalid packet', () => {
+	test('encodePacket emits an error, and returns undefined, for an invalid packet', () => {
 		const port = mockStreamPort()
 		const onError = vi.fn()
 		port.on('error', onError)
-		expect(port.encodeOSC({ foo: 1 } as any)).toBeUndefined()
+		expect((port as any).encodePacket({ foo: 1 } as any)).toBeUndefined()
 		expect(onError).toHaveBeenCalledTimes(1)
 	})
 

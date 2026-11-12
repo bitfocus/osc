@@ -95,7 +95,7 @@ export class OscPort<TInfo = unknown> extends EventEmitter<OscPortEvents<TInfo>>
 
 	/** Decodes the data a transport has received; OscStreamPort replaces this to reassemble framed packets */
 	protected handleData(data: ByteSource, packetInfo: TInfo | undefined): void {
-		this.decodeOSC(data, packetInfo)
+		this.decodePacket(data, packetInfo)
 	}
 
 	/**
@@ -103,7 +103,7 @@ export class OscPort<TInfo = unknown> extends EventEmitter<OscPortEvents<TInfo>>
 	 * An invalid packet isn't sent, and emits an error.
 	 */
 	send(oscPacket: OscPacketInput, ...args: any[]): void {
-		const encoded = this.encodeOSC(oscPacket)
+		const encoded = this.encodePacket(oscPacket)
 		if (!encoded) return
 
 		this.sendRaw(nativeBuffer(encoded), ...args)
@@ -122,7 +122,7 @@ export class OscPort<TInfo = unknown> extends EventEmitter<OscPortEvents<TInfo>>
 	/**
 	 * Encodes a packet, emitting an error (and returning undefined) if it isn't valid.
 	 */
-	encodeOSC(packet: OscPacketInput): Uint8Array | undefined {
+	protected encodePacket(packet: OscPacketInput): Uint8Array | undefined {
 		let encoded: Uint8Array | undefined
 
 		try {
@@ -137,7 +137,7 @@ export class OscPort<TInfo = unknown> extends EventEmitter<OscPortEvents<TInfo>>
 	/**
 	 * Decodes a packet, emitting the raw, osc, and message or bundle events, or an error if it isn't valid.
 	 */
-	decodeOSC(data: ByteSource, packetInfo?: TInfo): void {
+	protected decodePacket(data: ByteSource, packetInfo?: TInfo): void {
 		const bytes = byteArray(data)
 		this.emit('raw', bytes, packetInfo)
 
@@ -187,7 +187,7 @@ export class OscStreamPort<TInfo = unknown> extends OscPort<TInfo> {
 		const o = this.options
 		o.framing = o.framing ?? 'slip'
 
-		const onMessage = (msg: Uint8Array) => this.decodeOSC(msg, this.#framedPacketInfo)
+		const onMessage = (msg: Uint8Array) => this.decodePacket(msg, this.#framedPacketInfo)
 		const onError = (message: string) => this.emit('error', new Error(message))
 
 		switch (o.framing) {
@@ -209,11 +209,11 @@ export class OscStreamPort<TInfo = unknown> extends OscPort<TInfo> {
 		if (this.decoder) {
 			this.decodeFramedData(data, packetInfo)
 		} else {
-			this.decodeOSC(data, packetInfo)
+			this.decodePacket(data, packetInfo)
 		}
 	}
 
-	override encodeOSC(packet: OscPacketInput): Uint8Array | undefined {
+	protected override encodePacket(packet: OscPacketInput): Uint8Array | undefined {
 		let framed: Uint8Array | undefined
 
 		try {
