@@ -52,14 +52,8 @@ describe('OscTcpPort', () => {
 		expect(port.options).toEqual({ framing: 'slip', address: '127.0.0.1', port: 57121 })
 	})
 
-	test('takes localAddress and localPort as aliases for address and port', () => {
-		const port = new osc.OscTcpPort({ localAddress: '10.0.0.1', localPort: 0 })
-		expect(port.options).toMatchObject({ address: '10.0.0.1', port: 0 })
-	})
-
-	test('address and port take precedence over their aliases', () => {
-		const port = new osc.OscTcpPort({ address: '10.0.0.2', port: 0, localAddress: '10.0.0.1', localPort: 1 })
-		expect(port.options).toMatchObject({ address: '10.0.0.2', port: 0 })
+	test('keeps the given address and port, including port 0', () => {
+		expect(new osc.OscTcpPort({ address: '10.0.0.1', port: 0 }).options).toMatchObject({ address: '10.0.0.1', port: 0 })
 	})
 
 	test('can be constructed without options, and copies the options it is given', () => {

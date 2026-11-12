@@ -11,14 +11,10 @@ import net from 'node:net'
 import { OscStreamPort, type OscStreamPortOptions } from './port.js'
 
 export interface OscTcpPortOptions extends OscStreamPortOptions {
-	/** The address to connect to. Defaults to localAddress, or else 127.0.0.1. */
+	/** The address to connect to. Defaults to 127.0.0.1. */
 	address?: string
-	/** The port to connect to. Defaults to localPort, or else 57121. */
+	/** The port to connect to. Defaults to 57121. */
 	port?: number
-	/** An alias of address */
-	localAddress?: string
-	/** An alias of port */
-	localPort?: number
 	/** An existing socket to use, such as one accepted by a net.Server. The port listens to it immediately. */
 	socket?: net.Socket
 }
@@ -40,11 +36,8 @@ export class OscTcpPort extends OscStreamPort<undefined> {
 
 		const o = this.options
 
-		// Aliases "localAddress" and "localPort" to
-		// "address" and "port", respectively, for consistency
-		// with osc.UDPSocket.
-		o.address = o.address || o.localAddress || '127.0.0.1'
-		o.port = o.port !== undefined ? o.port : o.localPort !== undefined ? o.localPort : 57121
+		o.address = o.address || '127.0.0.1'
+		o.port = o.port !== undefined ? o.port : 57121
 
 		this.on('open', () => this.listen())
 		this.#socket = this.options.socket

@@ -94,8 +94,8 @@ Both take an `options` object. All the options are optional, and the port keeps 
 
 | Option | Description | Default |
 | --- | --- | --- |
-| `address` | The address to connect to (`localAddress` is another name for it) | `"127.0.0.1"` |
-| `port` | The port to connect to (`localPort` is another name for it) | 57121 |
+| `address` | The address to connect to | `"127.0.0.1"` |
+| `port` | The port to connect to | 57121 |
 | `framing` | How packets are delimited in the stream, both sent and received: `"slip"`, SLIP (RFC 1055) with an END byte at each end of each packet, as OSC 1.1 requires; `"size-count"`, each packet prefixed with its size as a big-endian int32, as OSC 1.0 recommended; or `"none"`, no framing at all. `"none"` conforms to neither version of OSC: each chunk of data received is read as a whole packet, which only works while each packet arrives in a chunk of its own (small packets, sent far enough apart), but some devices expect it | `"slip"` |
 | `socket` | An existing `net.Socket` to use, such as one accepted by a `net.Server`, instead of connecting | |
 | `metadata` | Require every argument sent to be typed (see [Arguments](#arguments)) | `false` |
@@ -262,9 +262,11 @@ So the `metadata` option now only affects sending, and `unpackSingleArgs` is gon
 * 64-bit integers (`h`) are `bigint`s, rather than `Long` objects. Send them as `bigint`s, or numbers typed as `h`.
 * `readOscPacket` (like `readPacket` before it) accepts an options argument for compatibility, but ignores it.
 
-### TCP framing
+### TCP options
 
-`useSLIP` is replaced by `framing`:
+`OscTcpPort` no longer takes `localAddress` and `localPort` as other names for `address` and `port` (they are the server's address and port, not local ones); use `address` and `port`.
+
+And `useSLIP` is replaced by `framing`:
 
 | `osc` | Now | Notes |
 | --- | --- | --- |
