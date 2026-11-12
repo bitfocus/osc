@@ -1,29 +1,15 @@
 /*
  * osc.js: An Open Sound Control library for Node.js
  *
- * The package entry point. Everything is available as a named export, and also on the default export, which is
- * shaped like the `osc` object of osc.js.
+ * The package entry point. Everything is a named export, so that bundlers can leave out what isn't used; for the
+ * `osc.UDPPort` style of osc.js, use `import * as osc from '@companion-app/osc'`.
  *
  * Copyright 2014-2016, Colin Clark
  * Licensed under either the MIT or the GPL-2.0 license.
  */
-
-import * as codec from './osc.js'
-import { TCPSocketPort } from './tcp.js'
-import * as transports from './transports.js'
-import { UDPPort } from './udp.js'
 
 export * from './osc.js'
 export * from './transports.js'
 export * from './types.js'
 export * from './udp.js'
 export * from './tcp.js'
-
-const osc = {
-	...codec,
-	...transports,
-	UDPPort,
-	TCPSocketPort,
-}
-
-export default osc

@@ -1,6 +1,6 @@
 import dgram from 'node:dgram'
 import type { EventEmitter } from 'node:events'
-import osc from '../src/index.js'
+import * as osc from '../src/index.js'
 import * as slip from '../src/slip.js'
 
 export { osc, slip }

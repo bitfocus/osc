@@ -14,10 +14,10 @@ This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/col
 * TCP (and other stream) ports have a `framing` option, `"slip"` (the default), `"size-count"` (OSC 1.0) or `"none"`, which replaces `useSLIP`. `useSLIP: false` only stopped decoding SLIP, while still sending it.
 * Values that don't fit their OSC type (such as an int32 above 2^31, or a colour channel above 255) are clamped when written, rather than wrapping around.
 * Bugs inherited from upstream are fixed, among them: blobs, MIDI messages and colours read from the wrong place in a slice of a larger buffer; nested arrays that couldn't be read; time tags a second early; bundle element sizes being ignored; a SLIP decoder that never recovered from an oversized message; and `Relay` ignoring its `raw` and `transform` options. See the commit history for the full list.
-* It is written in TypeScript, with type declarations. Everything is available as a named export, and on the default export, which is shaped like the `osc` object of osc.js:
+* It is written in TypeScript, with type declarations. Everything is a named export (there is no default export), so bundlers can leave out what isn't used. For the `osc.UDPPort` style of osc.js, import the whole module:
 
   ```javascript
-  import osc from "@companion-app/osc"; // or: import { UDPPort, readPacket } from "@companion-app/osc";
+  import * as osc from "@companion-app/osc"; // or: import { UDPPort, readPacket } from "@companion-app/osc";
   ```
 
 * Transports are classes, so a custom transport extends them with `class ... extends osc.Port`, rather than calling `osc.Port.call(this)`.
@@ -317,7 +317,7 @@ This fork only includes UDP and TCP, but the transports it removed (Web Sockets,
 The subclass implements <code>sendRaw(encoded)</code> to write the encoded bytes to the underlying connection, emits <code>data</code> (with the received bytes, and optionally some packet info) for each chunk it receives, and emits <code>ready</code>, <code>close</code> and <code>error</code> as appropriate. Encoding, decoding, framing and the <code>osc</code>, <code>message</code>, <code>bundle</code> and <code>raw</code> events are all handled by the base class. It will usually also implement <code>open()</code> and <code>close()</code>.
 
 ```javascript
-import osc from "@companion-app/osc";
+import * as osc from "@companion-app/osc";
 
 class SerialOSCPort extends osc.StreamPort {
     constructor(options) {
