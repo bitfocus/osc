@@ -46,7 +46,7 @@ The package is split up by what you need, so that you can import things by name,
 | --- | --- | --- |
 | `@companion-app/osc` | Sending and receiving over UDP and TCP | `OscUdpPort`, `OscTcpPort`, `createOscTimeTag`, and the packet, argument and option types |
 | `@companion-app/osc/codec` | Encoding and decoding packets, without a port | `readOscPacket`, `writeOscPacket`, `readOscMessage`, `writeOscMessage`, `writeOscBundle` |
-| `@companion-app/osc/transport` | [Writing your own transport](#writing-your-own-transport) | `OscPort`, `OscStreamPort`, `fireClosedPortSendError` |
+| `@companion-app/osc/transport` | [Writing your own transport](#writing-your-own-transport) | `OscPort`, `OscStreamPort`, `emitClosedPortError` |
 | `@companion-app/osc/framing` | Framing data for a stream yourself | `slip`, `sizeCount` |
 
 Ports
@@ -184,7 +184,7 @@ The transports that osc.js had and this fork doesn't (Web Sockets, serial ports)
 The subclass implements `sendRaw(encoded)` to write the encoded bytes, emits `data` (with the bytes, and optionally some information about where they came from, which the `message` and other events pass on as `info`) for each chunk it receives, and emits `ready`, `close` and `error` as appropriate. It usually also implements `open()` and `close()`. Encoding, decoding, framing, and the `osc`, `message`, `bundle` and `raw` events are all handled by the base class.
 
 ```javascript
-import { fireClosedPortSendError, OscStreamPort } from "@companion-app/osc/transport";
+import { emitClosedPortError, OscStreamPort } from "@companion-app/osc/transport";
 
 class OscSerialPort extends OscStreamPort {
     constructor(options) {
@@ -202,7 +202,7 @@ class OscSerialPort extends OscStreamPort {
 
     sendRaw(encoded) {
         if (!this.serialPort.isOpen) {
-            fireClosedPortSendError(this);
+            emitClosedPortError(this);
             return;
         }
         this.serialPort.write(encoded);
@@ -243,7 +243,7 @@ This package was forked from version 2.4.5 of the [`osc`](https://www.npmjs.com/
 | `osc.readBundle` | `readOscPacket` from `@companion-app/osc/codec`; `readBundle` was the same function, and read messages too |
 | `osc.Port`, `osc.SLIPPort` | `OscPort`, `OscStreamPort` from `@companion-app/osc/transport` |
 | `osc.Relay` | Removed; listen for the `osc` (or `raw`) events of one port and `send()` (or `sendRaw()`) each on another |
-| `osc.fireClosedPortSendError` | `fireClosedPortSendError` from `@companion-app/osc/transport` |
+| `osc.fireClosedPortSendError` | `emitClosedPortError` from `@companion-app/osc/transport` |
 | `osc.WebSocketPort`, `osc.SerialPort` | Removed; see [Writing your own transport](#writing-your-own-transport) |
 | `osc.readInt32`, `osc.writeString` and the other low-level functions, `osc.Long`, `osc.supportsSerial`, `osc.isNode` and the other flags | Removed |
 

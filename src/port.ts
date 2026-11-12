@@ -71,7 +71,7 @@ export function fireBundleEvents<TInfo>(
 }
 
 /** Emits the error for an attempt to send on a port that isn't open */
-export function fireClosedPortSendError(port: OscPort<any>, msg?: string): void {
+export function emitClosedPortError(port: OscPort<any>, msg?: string): void {
 	msg = msg || "Can't send packets on a closed port. Please open (or reopen) it by calling open()."
 
 	port.emit('error', new Error(msg))

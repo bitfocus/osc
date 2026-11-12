@@ -5,7 +5,7 @@
  */
 
 export {
-	fireClosedPortSendError,
+	emitClosedPortError,
 	OscPort,
 	OscStreamPort,
 	type OscPortEvents,

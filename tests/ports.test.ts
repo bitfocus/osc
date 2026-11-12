@@ -165,12 +165,12 @@ describe('Packet events', () => {
 		expect(onMessage).toHaveBeenCalledWith({ address: '/a' }, 'tt', 'info')
 	})
 
-	test('fireClosedPortSendError emits an Error, with a default or custom message', () => {
+	test('emitClosedPortError emits an Error, with a default or custom message', () => {
 		const port = new osc.OscPort()
 		const onError = vi.fn()
 		port.on('error', onError)
-		osc.fireClosedPortSendError(port)
-		osc.fireClosedPortSendError(port, 'custom')
+		osc.emitClosedPortError(port)
+		osc.emitClosedPortError(port, 'custom')
 		expect(onError.mock.calls).toEqual([
 			[new Error("Can't send packets on a closed port. Please open (or reopen) it by calling open().")],
 			[new Error('custom')],

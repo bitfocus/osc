@@ -22,7 +22,7 @@ describe('Package entry points', () => {
 	})
 
 	test('@companion-app/osc/transport', () => {
-		expect(Object.keys(transport).sort()).toEqual(['OscPort', 'OscStreamPort', 'fireClosedPortSendError'])
+		expect(Object.keys(transport).sort()).toEqual(['OscPort', 'OscStreamPort', 'emitClosedPortError'])
 	})
 
 	test('@companion-app/osc/framing', () => {

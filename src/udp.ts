@@ -9,7 +9,7 @@
 
 import dgram from 'node:dgram'
 import net from 'node:net'
-import { fireClosedPortSendError, OscPort, type OscPortOptions } from './port.js'
+import { emitClosedPortError, OscPort, type OscPortOptions } from './port.js'
 
 export interface OscUdpPortOptions extends OscPortOptions {
 	/**
@@ -130,7 +130,7 @@ export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
 	 */
 	override sendRaw(encoded: Uint8Array | ArrayLike<number>, address?: string, port?: number): void {
 		if (!this.#socket) {
-			fireClosedPortSendError(this)
+			emitClosedPortError(this)
 			return
 		}
 

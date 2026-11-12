@@ -5,7 +5,7 @@ import { readOscPacket, writeOscPacket } from '../src/codec.js'
 import { slip } from '../src/framing.js'
 import { createOscTimeTag, type OscMessageInput } from '../src/index.js'
 import {
-	fireClosedPortSendError,
+	emitClosedPortError,
 	OscPort,
 	OscStreamPort,
 	type OscPortOptions,
@@ -48,7 +48,7 @@ class PipePort extends OscStreamPort {
 
 	override sendRaw(encoded: Uint8Array): void {
 		if (this.writable.destroyed) {
-			fireClosedPortSendError(this)
+			emitClosedPortError(this)
 			return
 		}
 		this.writable.write(encoded)
