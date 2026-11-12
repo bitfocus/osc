@@ -88,7 +88,7 @@ Both take an `options` object. All the options are optional, and the port keeps 
 | `multicastTTL` | The time to live (number of hops) of multicast packets | |
 | `multicastMembership` | The multicast groups to join: an address, or an array of addresses or `{ address, interface }` objects | |
 | `socket` | An existing `dgram.Socket` to use, which you configure and bind; give `type` too if it is a udp6 socket | |
-| `metadata` | Require every argument sent to be typed (see [Arguments](#arguments)) | `false` |
+| `strictTypes` | Require every argument sent to be typed, rather than inferring the types of plain values (see [Arguments](#arguments)) | `false` |
 
 ### TCP options
 
@@ -98,7 +98,7 @@ Both take an `options` object. All the options are optional, and the port keeps 
 | `port` | The port to connect to | 57121 |
 | `framing` | How packets are delimited in the stream, both sent and received: `"slip"`, SLIP (RFC 1055) with an END byte at each end of each packet, as OSC 1.1 requires; `"size-count"`, each packet prefixed with its size as a big-endian int32, as OSC 1.0 recommended; or `"none"`, no framing at all. `"none"` conforms to neither version of OSC: each chunk of data received is read as a whole packet, which only works while each packet arrives in a chunk of its own (small packets, sent far enough apart), but some devices expect it | `"slip"` |
 | `socket` | An existing `net.Socket` to use, such as one accepted by a `net.Server`, instead of connecting | |
-| `metadata` | Require every argument sent to be typed (see [Arguments](#arguments)) | `false` |
+| `strictTypes` | Require every argument sent to be typed, rather than inferring the types of plain values (see [Arguments](#arguments)) | `false` |
 
 Packets
 -------
@@ -145,7 +145,7 @@ Arguments are `{ type, value }` objects, where `type` is the OSC type tag. Recei
 | `N` | nil (read as `null`) | `{ type: "N" }` |
 | `I` | impulse (read as 1) | `{ type: "I" }` |
 
-When sending, an argument can also be a plain value, whose type is inferred: a boolean is `T` or `F`, a string `s`, a number `f` (so an integer is sent as a float), a `bigint` `h`, `null` or `undefined` `N`, and a `Uint8Array` or `ArrayBuffer` `b`. Set the `metadata` option to `true` to require every argument to be typed instead.
+When sending, an argument can also be a plain value, whose type is inferred: a boolean is `T` or `F`, a string `s`, a number `f` (so an integer is sent as a float), a `bigint` `h`, `null` or `undefined` `N`, and a `Uint8Array` or `ArrayBuffer` `b`. Set the `strictTypes` option to `true` to require every argument to be typed instead.
 
 Values that don't fit their type are clamped to the nearest value that does, rather than wrapping around: an int32 above 2^31 - 1 is sent as 2^31 - 1, and a colour channel above 255 as 255. A string can't contain a null character.
 
@@ -171,7 +171,7 @@ const bytes = writeOscPacket({ address: "/volume", args: [0.5] }); // a Uint8Arr
 const packet = readOscPacket(bytes); // { address: "/volume", args: [{ type: "f", value: 0.5 }] }
 ```
 
-`writeOscPacket(packet, options)` takes the same `metadata` option as the ports. `readOscMessage` and `writeOscMessage` do the same for just messages, and `writeOscBundle` for just bundles; read a bundle with `readOscPacket`. Reading throws an `Error` for a malformed packet.
+`writeOscPacket(packet, options)` takes the same `strictTypes` option as the ports. `readOscMessage` and `writeOscMessage` do the same for just messages, and `writeOscBundle` for just bundles; read a bundle with `readOscPacket`. Reading throws an `Error` for a malformed packet.
 
 Writing your own transport
 --------------------------
@@ -257,7 +257,7 @@ This package was forked from version 2.4.5 of the [`osc`](https://www.npmjs.com/
 | `metadata: true`, `unpackSingleArgs: true` | `{ type: "f", value: 0.5 }` for a single argument | `[{ type: "f", value: 0.5 }]` |
 | `metadata: false` (the default) | `[0.5]`, or `0.5` for a single argument | `[{ type: "f", value: 0.5 }]`, so read `args[0].value` |
 
-So the `metadata` option now only affects sending, and `unpackSingleArgs` is gone. Also:
+So `unpackSingleArgs` is gone, and the `metadata` option, which now only affects sending (requiring every argument sent to be typed), is renamed `strictTypes`. Also:
 
 * 64-bit integers (`h`) are `bigint`s, rather than `Long` objects. Send them as `bigint`s, or numbers typed as `h`.
 * `readOscPacket` (like `readPacket` before it) accepts an options argument for compatibility, but ignores it.

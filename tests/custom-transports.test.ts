@@ -113,7 +113,7 @@ describe('A custom stream (SLIP framed) transport', () => {
 	}
 
 	test('sends SLIP framed messages and bundles, in both directions', async () => {
-		const [a, b, aToB] = streamPortPair({ metadata: true })
+		const [a, b, aToB] = streamPortPair({ strictTypes: true })
 		const wire = nextEvent(aToB, 'data')
 
 		const received = nextEvent(b, 'message')

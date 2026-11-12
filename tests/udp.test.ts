@@ -97,7 +97,7 @@ describe('OscUdpPort', () => {
 	})
 
 	test('sends to an address and port given to send', async () => {
-		const receiver = await openUDPPort({ metadata: true })
+		const receiver = await openUDPPort({ strictTypes: true })
 		const sender = await openUDPPort({ remotePort: 1 })
 
 		const received = nextEvent(receiver, 'message')

@@ -17,8 +17,8 @@ const messageSpecs: Array<{
 	options: OscOptions | undefined
 }> = [
 	{
-		name: 'float and array example without type metadata',
-		// Without type metadata, the numbers must be interpreted as floats.
+		name: 'float and array example without strict types',
+		// Without types, the numbers must be interpreted as floats.
 		bytes: [
 			0x2f, 0x63, 0x61, 0x72, 0x72, 0x69, 0x65, 0x72, 0x2f, 0x66, 0x72, 0x65, 0x71, 0, 0, 0, 0x2c, 0x66, 0x5b, 0x66,
 			0x66, 0x5d, 0, 0, 0x43, 0xdc, 0x33, 0x33, 66, 40, 0, 0, 66, 60, 0, 0,
@@ -34,10 +34,10 @@ const messageSpecs: Array<{
 				],
 			],
 		},
-		options: { metadata: false },
+		options: { strictTypes: false },
 	},
 	{
-		name: 'float and array example with type metadata',
+		name: 'float and array example with strict types',
 		bytes: [
 			0x2f, 0x63, 0x61, 0x72, 0x72, 0x69, 0x65, 0x72, 0x2f, 0x66, 0x72, 0x65, 0x71, 0, 0, 0, 0x2c, 0x66, 0x5b, 0x69,
 			0x69, 0x5d, 0, 0, 0x43, 0xdc, 0x33, 0x33, 0, 0, 0, 42, 0, 0, 0, 47,
@@ -52,10 +52,10 @@ const messageSpecs: Array<{
 				],
 			],
 		},
-		options: { metadata: true },
+		options: { strictTypes: true },
 	},
 	{
-		name: 'single argument, without type metadata (default options)',
+		name: 'single argument, without strict types (default options)',
 		bytes: [
 			0x2f, 0x6f, 0x73, 0x63, 0x69, 0x6c, 0x6c, 0x61, 0x74, 0x6f, 0x72, 0x2f, 0x34, 0x2f, 0x66, 0x72, 0x65, 0x71, 0x75,
 			0x65, 0x6e, 0x63, 0x79, 0, 0x2c, 0x66, 0, 0, 0x43, 0xdc, 0, 0,
@@ -65,7 +65,7 @@ const messageSpecs: Array<{
 		options: undefined,
 	},
 	{
-		name: 'with type metadata',
+		name: 'with strict types',
 		bytes: [
 			0x2f, 0x66, 0x6f, 0x6f, 0, 0, 0, 0, 0x2c, 0x69, 0x69, 0x73, 0x54, 0x66, 0x66, 0, 0, 0, 0x3, 0xe8, 0xff, 0xff,
 			0xff, 0xff, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0, 0, 0, 0x3f, 0x9d, 0xf3, 0xb6, 0x40, 0xb5, 0xb2, 0x2d,
@@ -81,21 +81,21 @@ const messageSpecs: Array<{
 				{ type: 'f', value: 5.678 },
 			],
 		},
-		options: { metadata: true },
+		options: { strictTypes: true },
 	},
 	{
-		name: 'zero arguments, with type metadata',
+		name: 'zero arguments, with strict types',
 		bytes: [0x2f, 0x66, 0x6f, 0x6f, 0, 0, 0, 0, 0x2c, 0, 0, 0],
 		message: { address: '/foo' },
 		expected: { address: '/foo', args: [] },
-		options: { metadata: true },
+		options: { strictTypes: true },
 	},
 	{
-		name: 'zero arguments, without type metadata',
+		name: 'zero arguments, without strict types',
 		bytes: [0x2f, 0x66, 0x6f, 0x6f, 0, 0, 0, 0, 0x2c, 0, 0, 0],
 		message: { address: '/foo' },
 		expected: { address: '/foo', args: [] },
-		options: { metadata: false },
+		options: { strictTypes: false },
 	},
 ]
 
@@ -146,7 +146,7 @@ describe('Messages', () => {
 				{ type: 'r', value: { r: 8, g: 9, b: 10, a: 1 } },
 			],
 		}
-		const bytes = toArray(osc.writeOscMessage(message, { metadata: true }))
+		const bytes = toArray(osc.writeOscMessage(message, { strictTypes: true }))
 		const backing = new Uint8Array([9, 9, 9, 9, ...bytes])
 		expect(normalise(osc.readOscMessage(backing.subarray(4)))).toEqual(
 			normalise({
@@ -165,9 +165,9 @@ describe('Messages', () => {
 		expect(actual).toEqual({ address: '/oscillator/4/frequency', args: [{ type: 'f', value: 440 }] })
 	})
 
-	test('gh-17: a float with type metadata', () => {
+	test('gh-17: a float with strict types', () => {
 		const msg: OscMessageInput = { address: '/sl/1/down', args: [{ type: 'f', value: 444.4 }] }
-		const decoded = osc.readOscMessage(osc.writeOscMessage(msg), { metadata: true })
+		const decoded = osc.readOscMessage(osc.writeOscMessage(msg), { strictTypes: true })
 		expect(normalise(decoded)).toEqual(normalise(msg))
 	})
 
@@ -247,7 +247,7 @@ const bundle: OscBundleInput = {
 	],
 }
 
-const metadataOptions = { metadata: true }
+const strictOptions = { strictTypes: true }
 
 describe('Bundles', () => {
 	test('read a bundle with nested bundles', () => {
@@ -258,7 +258,7 @@ describe('Bundles', () => {
 	})
 
 	test('writeOscBundle with nested bundles', () => {
-		expect(toArray(osc.writeOscBundle(bundle, { metadata: true }))).toEqual(bundleBytes)
+		expect(toArray(osc.writeOscBundle(bundle, { strictTypes: true }))).toEqual(bundleBytes)
 	})
 
 	test('writeOscBundle with the default options', () => {
@@ -325,7 +325,7 @@ describe('Bundles', () => {
 		const empty: OscBundleInput = { timeTag: { raw: [3608492400, 0] }, packets: [] }
 		const written = osc.writeOscBundle(empty)
 		expect(toArray(written)).toEqual([...oscString('#bundle'), 215, 21, 57, 112, 0, 0, 0, 0])
-		expect(osc.readOscPacket(written, metadataOptions)).toEqual({
+		expect(osc.readOscPacket(written, strictOptions)).toEqual({
 			timeTag: { raw: [3608492400, 0], native: 1399503600000 },
 			packets: [],
 		})
@@ -355,11 +355,11 @@ describe('Bundles', () => {
 describe('Packets', () => {
 	test('readOscPacket of a message', () => {
 		const bytes = osc.writeOscMessage({ address: '/a', args: [{ type: 'i', value: 1 }] })
-		expect(osc.readOscPacket(bytes, metadataOptions)).toEqual({ address: '/a', args: [{ type: 'i', value: 1 }] })
+		expect(osc.readOscPacket(bytes, strictOptions)).toEqual({ address: '/a', args: [{ type: 'i', value: 1 }] })
 	})
 
 	test('readOscPacket of a bundle', () => {
-		expect(normalise(osc.readOscPacket(new Uint8Array(bundleBytes), metadataOptions))).toEqual(normalise(bundle))
+		expect(normalise(osc.readOscPacket(new Uint8Array(bundleBytes), strictOptions))).toEqual(normalise(bundle))
 	})
 
 	test('readOscPacket throws for a packet that is neither a message nor a bundle', () => {
@@ -372,7 +372,7 @@ describe('Packets', () => {
 		const bytes = osc.writeOscMessage({ address: '/a', args: [1] })
 		const expected = { address: '/a', args: [{ type: 'f', value: 1 }] }
 		expect(osc.readOscPacket(bytes)).toEqual(expected)
-		expect(osc.readOscPacket(bytes, { metadata: false })).toEqual(expected)
+		expect(osc.readOscPacket(bytes, { strictTypes: false })).toEqual(expected)
 	})
 
 	test('readOscPacket throws for a header starting with "#" other than "#bundle"', () => {
@@ -385,7 +385,7 @@ describe('Packets', () => {
 	test('writeOscPacket of a message and a bundle', () => {
 		const message: OscMessageInput = { address: '/a', args: [1] }
 		expect(osc.writeOscPacket(message)).toEqual(osc.writeOscMessage(message))
-		expect(osc.writeOscPacket(bundle, { metadata: true })).toEqual(osc.writeOscBundle(bundle, { metadata: true }))
+		expect(osc.writeOscPacket(bundle, { strictTypes: true })).toEqual(osc.writeOscBundle(bundle, { strictTypes: true }))
 	})
 
 	test('writeOscPacket throws for something that is neither a message nor a bundle', () => {
@@ -394,7 +394,7 @@ describe('Packets', () => {
 		)
 	})
 
-	test('gh-102: array-typed arguments with type metadata', () => {
+	test('gh-102: array-typed arguments with strict types', () => {
 		const message: OscPacketInput = {
 			address: '/float/andArray',
 			args: [
@@ -405,11 +405,11 @@ describe('Packets', () => {
 				],
 			],
 		}
-		expect(osc.readOscPacket(osc.writeOscPacket(message, metadataOptions), metadataOptions)).toEqual(message)
+		expect(osc.readOscPacket(osc.writeOscPacket(message, strictOptions), strictOptions)).toEqual(message)
 	})
 
-	test('gh-102: array-typed arguments without type metadata', () => {
-		const options = { metadata: false }
+	test('gh-102: array-typed arguments without strict types', () => {
+		const options = { strictTypes: false }
 		const message = { address: '/float/andArray', args: [440.0, [42.0, 47.0]] }
 		expect(osc.readOscPacket(osc.writeOscPacket(message, options), options)).toEqual({
 			address: '/float/andArray',
@@ -424,6 +424,6 @@ describe('Packets', () => {
 	})
 
 	test('osc.defaults', () => {
-		expect(osc.defaults).toEqual({ metadata: false })
+		expect(osc.defaults).toEqual({ strictTypes: false })
 	})
 })

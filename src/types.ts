@@ -75,12 +75,12 @@ export interface OscArgumentInputValues {
 	m: OscBinaryInput
 }
 
-/** An argument, as read with type metadata */
+/** An argument, as read: a value with its type */
 export type OscMetaArgument = {
 	[T in OscArgumentType]: { type: T; value: OscArgumentValues[T] }
 }[OscArgumentType]
 
-/** An argument with type metadata, for writing */
+/** An argument with its type, for writing */
 export type OscMetaArgumentInput = {
 	[T in OscArgumentType]: T extends OscTypeOnlyArgumentType
 		? { type: T; value?: unknown }
@@ -98,7 +98,7 @@ export type OscArgument = OscMetaArgument | OscArgument[]
 
 /**
  * An argument for writing.
- * With type metadata on, every argument must be typed. Without it, typed arguments are written as given, and the types
+ * With the strictTypes option, every argument must be typed. Without it, typed arguments are written as given, and the types
  * of other values are inferred: booleans as T/F, strings as s, numbers as f (float32), null/undefined as N, binary
  * data as b, and bigints as h (int64).
  */
@@ -147,7 +147,7 @@ export interface OscOptions {
 	 * When writing, expect every argument to be a `{ type, value }` object, rather than inferring the types of those
 	 * that aren't. Defaults to false. Arguments are always read with their types.
 	 */
-	metadata?: boolean
+	strictTypes?: boolean
 }
 
 /** Tracks the position of a reader in some data */

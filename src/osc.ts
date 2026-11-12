@@ -32,7 +32,7 @@ export const SECS_70YRS = 2208988800
 export const TWO_32 = 4294967296
 
 export const defaults: OscOptions = {
-	metadata: false,
+	strictTypes: false,
 }
 
 const textDecoder = new TextDecoder('utf-8')
@@ -833,7 +833,7 @@ export function writeArgument(arg: OscArgumentInput, dataCollection: DataCollect
 
 	if (!isTypedArgument(arg)) {
 		throw new Error(
-			'An argument has no OSC type. With the metadata option set, every argument must be a { type, value } ' +
+			'An argument has no OSC type. With the strictTypes option set, every argument must be a { type, value } ' +
 				'object. Argument was: ' +
 				describeValue(arg)
 		)
@@ -869,7 +869,7 @@ export function collectArguments(
 		parts: [],
 	}
 
-	if (!options.metadata) {
+	if (!options.strictTypes) {
 		argList = annotateArguments(argList)
 	}
 

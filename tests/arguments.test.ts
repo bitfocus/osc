@@ -155,14 +155,14 @@ describe('readArguments', () => {
 })
 
 describe('writeArguments', () => {
-	test.each(specs)('$name, with type metadata', ({ raw, args, typeTags }) => {
-		const actual = osc.writeArguments(typed(args, typeTags), { metadata: true })
+	test.each(specs)('$name, with strict types', ({ raw, args, typeTags }) => {
+		const actual = osc.writeArguments(typed(args, typeTags), { strictTypes: true })
 		expect(actual).toBeInstanceOf(Uint8Array)
 		expect(toArray(actual)).toEqual(raw)
 	})
 
-	test('explicitly typed arguments are kept when type metadata is off', () => {
-		const actual = osc.writeArguments([{ type: 'i', value: 1 }, 2], { metadata: false })
+	test('explicitly typed arguments are kept without strict types', () => {
+		const actual = osc.writeArguments([{ type: 'i', value: 1 }, 2], { strictTypes: false })
 		expect(toArray(actual)).toEqual([...oscString(',if'), 0, 0, 0, 1, 0x40, 0, 0, 0])
 	})
 
@@ -174,7 +174,7 @@ describe('writeArguments', () => {
 				{ type: 'N', value: null },
 				{ type: 'I', value: 1 },
 			],
-			{ metadata: true }
+			{ strictTypes: true }
 		)
 		expect(toArray(actual)).toEqual(oscString(',TFNI'))
 	})
@@ -188,15 +188,15 @@ describe('writeArguments', () => {
 		expect(toArray(osc.writeArguments([], {}))).toEqual(oscString(','))
 	})
 
-	test('with type metadata on, an untyped argument throws', () => {
-		expect(() => osc.writeArguments([1], { metadata: true })).toThrow(
-			'An argument has no OSC type. With the metadata option set, every argument must be a { type, value } object. Argument was: 1'
+	test('with strict types, an untyped argument throws', () => {
+		expect(() => osc.writeArguments([1], { strictTypes: true })).toThrow(
+			'An argument has no OSC type. With the strictTypes option set, every argument must be a { type, value } object. Argument was: 1'
 		)
-		expect(() => osc.writeArguments([10n], { metadata: true })).toThrow('Argument was: "10n"')
+		expect(() => osc.writeArguments([10n], { strictTypes: true })).toThrow('Argument was: "10n"')
 	})
 
 	test('an unknown type throws', () => {
-		expect(() => untypedOsc.writeArguments([{ type: 'x', value: 1 }], { metadata: true })).toThrow(
+		expect(() => untypedOsc.writeArguments([{ type: 'x', value: 1 }], { strictTypes: true })).toThrow(
 			"'x' is not a valid OSC type tag."
 		)
 		// Not mistaken for a property of every object

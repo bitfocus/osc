@@ -44,10 +44,10 @@ describe('OscPort', () => {
 	})
 
 	test('send uses the port options when encoding', () => {
-		const port = mockPort({ metadata: true })
+		const port = mockPort({ strictTypes: true })
 		port.send({ address: '/a', args: [{ type: 'i', value: 1 }] })
 		expect(toArray(port.sendRaw.mock.calls[0][0])).toEqual(
-			toArray(osc.writeOscPacket({ address: '/a', args: [{ type: 'i', value: 1 }] }, { metadata: true }))
+			toArray(osc.writeOscPacket({ address: '/a', args: [{ type: 'i', value: 1 }] }, { strictTypes: true }))
 		)
 	})
 
@@ -118,7 +118,7 @@ describe('OscPort', () => {
 	})
 
 	test('gh-29: receiving Buffer-based blob messages', () => {
-		const port = new osc.OscPort({ metadata: true })
+		const port = new osc.OscPort({ strictTypes: true })
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		const blob = [0, 0, 0, 3, 0x63, 0x61, 0x74, 0]
@@ -143,12 +143,12 @@ describe('Packet events', () => {
 	}
 
 	test('a bundle emits bundle events, then a message event for each message, with its bundle time tag', () => {
-		const port = new osc.OscPort({ metadata: true })
+		const port = new osc.OscPort({ strictTypes: true })
 		const events: unknown[][] = []
 		port.on('bundle', (b, timeTag, info) => events.push(['bundle', b.timeTag.raw, timeTag?.raw, info]))
 		port.on('message', (m, timeTag, info) => events.push(['message', m.address, timeTag?.raw, info]))
 
-		;(port as any).decodePacket(osc.writeOscPacket(bundle, { metadata: true }), 'info')
+		;(port as any).decodePacket(osc.writeOscPacket(bundle, { strictTypes: true }), 'info')
 
 		expect(events).toEqual([
 			['bundle', [3608492400, 0], undefined, 'info'],
