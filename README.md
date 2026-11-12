@@ -11,7 +11,9 @@ This is [Bitfocus](https://bitfocus.io)' fork of [osc.js](https://github.com/col
 * Received arguments are always an array (upstream unpacked a lone argument out of it by default, as the `unpackSingleArgs` option, which is removed), and always have their types, as `{ type, value }` objects. Upstream only included the types when the `metadata` option was set, which now only affects writing.
 * UDP ports can use IPv6, including listening dual-stack on both IPv6 and IPv4 (see the `type` and `ipv6Only` options).
 * It requires Node.js 26 or later.
-* Bugs inherited from upstream are fixed, among them: blobs, MIDI messages and colours read from the wrong place in a slice of a larger buffer; nested arrays that couldn't be read; time tags a second early; `useSLIP: false` still framing sent packets; a SLIP decoder that never recovered from an oversized message; and `Relay` ignoring its `raw` and `transform` options. See the commit history for the full list.
+* TCP (and other stream) ports have a `framing` option, `"slip"` (the default), `"size-count"` (OSC 1.0) or `"none"`, which replaces `useSLIP`. `useSLIP: false` only stopped decoding SLIP, while still sending it.
+* Values that don't fit their OSC type (such as an int32 above 2^31, or a colour channel above 255) are clamped when written, rather than wrapping around.
+* Bugs inherited from upstream are fixed, among them: blobs, MIDI messages and colours read from the wrong place in a slice of a larger buffer; nested arrays that couldn't be read; time tags a second early; bundle element sizes being ignored; a SLIP decoder that never recovered from an oversized message; and `Relay` ignoring its `raw` and `transform` options. See the commit history for the full list.
 * It is written in TypeScript, with type declarations. Everything is available as a named export, and on the default export, which is shaped like the `osc` object of osc.js:
 
   ```javascript
@@ -28,7 +30,7 @@ osc.js reads and writes OSC-formatted binary data into plain JavaScript objects.
 
 The core of osc.js is transport agnostic: connect it up to whatever source of incoming/outgoing data suits your application. This approach is consistent with the design of Open Sound Control as a _content format_ that is independent from its means of transport.
 
-In addition to the low-level encoder/decoder functions, osc.js provides transport objects, called <code>Port</code>s, for UDP (including broadcast and multicast) and TCP in Node.js. For stream-based protocols such as TCP, osc.js will take care of SLIP framing for you.
+In addition to the low-level encoder/decoder functions, osc.js provides transport objects, called <code>Port</code>s, for UDP (including broadcast and multicast) and TCP in Node.js. For stream-based protocols such as TCP, osc.js will take care of framing for you: SLIP by default, as OSC 1.1 requires, or OSC 1.0's size-count framing (see the <code>framing</code> option below).
 
 Status
 ------
@@ -266,19 +268,58 @@ udpPort.on("ready", function () {
 });
 ```
 
+### TCP in Node.js
+
+The <code>osc.TCPSocketPort</code> object sends and receives OSC packets over a TCP connection. It connects to a server itself when opened, or wraps a socket accepted by a <code>net.Server</code>, given as its <code>socket</code> option.
+
+#### Options
+
+<table>
+    <tr>
+        <th>Property</th>
+        <th>Description</th>
+        <th>Default Value</th>
+    </tr>
+    <tr>
+        <td>address</td>
+        <td>The address to connect to (<code>localAddress</code> is another name for it)</td>
+        <td>"127.0.0.1"</td>
+    </tr>
+    <tr>
+        <td>port</td>
+        <td>The port to connect to (<code>localPort</code> is another name for it)</td>
+        <td>57121</td>
+    </tr>
+    <tr>
+        <td>framing</td>
+        <td>
+            How packets are delimited in the stream, both sent and received:<br />
+            <code>"slip"</code>: SLIP (RFC 1055), with an END byte at each end of each packet, as OSC 1.1 requires.<br />
+            <code>"size-count"</code>: each packet prefixed with its size, as a big-endian int32, as OSC 1.0 recommended.<br />
+            <code>"none"</code>: no framing. Packets are sent as they are, and each chunk of data received is read as a whole packet. This conforms to neither version of OSC, and only works while each packet arrives in a chunk of its own (small packets, sent far enough apart), but some devices expect it.
+        </td>
+        <td>"slip"</td>
+    </tr>
+    <tr>
+        <td>socket</td>
+        <td>An existing <code>net.Socket</code> to use, such as one accepted by a <code>net.Server</code></td>
+        <td>none</td>
+    </tr>
+</table>
+
 ### Writing your own transport
 
 This fork only includes UDP and TCP, but the transports it removed (Web Sockets, serial ports) were built entirely on the public API, so an application, or a separate package, can provide one without changing or rebuilding osc.js. A transport is a subclass of one of:
 
 * <code>osc.Port</code>, for message-based transports where each chunk of data received is one whole OSC packet (UDP, Web Sockets).
-* <code>osc.SLIPPort</code>, for stream-based transports (TCP, serial ports). It frames outgoing packets with SLIP, and reassembles incoming packets from data that may arrive split across chunks.
+* <code>osc.StreamPort</code>, for stream-based transports (TCP, serial ports). It frames outgoing packets (with SLIP, or as its <code>framing</code> option says), and reassembles incoming packets from data that may arrive split across chunks. (<code>osc.SLIPPort</code> is another name for it, for code written for osc.js.)
 
-The subclass implements <code>sendRaw(encoded)</code> to write the encoded bytes to the underlying connection, emits <code>data</code> (with the received bytes, and optionally some packet info) for each chunk it receives, and emits <code>ready</code>, <code>close</code> and <code>error</code> as appropriate. Encoding, decoding, SLIP framing and the <code>osc</code>, <code>message</code>, <code>bundle</code> and <code>raw</code> events are all handled by the base class. It will usually also implement <code>open()</code> and <code>close()</code>.
+The subclass implements <code>sendRaw(encoded)</code> to write the encoded bytes to the underlying connection, emits <code>data</code> (with the received bytes, and optionally some packet info) for each chunk it receives, and emits <code>ready</code>, <code>close</code> and <code>error</code> as appropriate. Encoding, decoding, framing and the <code>osc</code>, <code>message</code>, <code>bundle</code> and <code>raw</code> events are all handled by the base class. It will usually also implement <code>open()</code> and <code>close()</code>.
 
 ```javascript
 import osc from "@companion-app/osc";
 
-class SerialOSCPort extends osc.SLIPPort {
+class SerialOSCPort extends osc.StreamPort {
     constructor(options) {
         super(options);
         this.serialPort = options.serialPort; // eg a SerialPort from the serialport package
@@ -306,7 +347,7 @@ class SerialOSCPort extends osc.SLIPPort {
 }
 ```
 
-The SLIP codec is also available on its own, as <code>osc.slip</code> (<code>osc.slip.encode(bytes)</code> and <code>new osc.slip.Decoder({ onMessage })</code>), for transports that need to do their own framing.
+The framing codecs are also available on their own, for transports that need to do their own framing: SLIP as <code>osc.slip</code>, and size-count as <code>osc.sizeCount</code> (each with <code>encode(bytes)</code> and <code>new Decoder({ onMessage, onError })</code>).
 
 See <code>tests/custom-transports.test.ts</code> for working stream and message transports built this way.
 

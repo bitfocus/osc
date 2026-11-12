@@ -8,9 +8,9 @@
  */
 
 import net from 'node:net'
-import { SLIPPort, type SLIPPortOptions } from './transports.js'
+import { StreamPort, type StreamPortOptions } from './transports.js'
 
-export interface TCPSocketPortOptions extends SLIPPortOptions {
+export interface TCPSocketPortOptions extends StreamPortOptions {
 	/** The address to connect to. Defaults to localAddress, or else 127.0.0.1. */
 	address?: string
 	/** The port to connect to. Defaults to localPort, or else 57121. */
@@ -24,9 +24,9 @@ export interface TCPSocketPortOptions extends SLIPPortOptions {
 }
 
 /**
- * Sends and receives SLIP framed OSC packets over a TCP connection.
+ * Sends and receives OSC packets over a TCP connection, framed as given by the framing option (SLIP by default).
  */
-export class TCPSocketPort extends SLIPPort<undefined> {
+export class TCPSocketPort extends StreamPort<undefined> {
 	declare options: TCPSocketPortOptions
 	socket: net.Socket | undefined
 
@@ -71,7 +71,7 @@ export class TCPSocketPort extends SLIPPort<undefined> {
 		const socket = this.socket as net.Socket
 
 		socket.on('data', (msg) => {
-			// Data is only a string if an encoding has been set on the socket, which would break SLIP decoding anyway
+			// Data is only a string if an encoding has been set on the socket, which would break decoding the framing anyway
 			this.emit('data', msg as Buffer, undefined)
 		})
 

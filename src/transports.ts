@@ -9,13 +9,14 @@
 
 import { EventEmitter } from 'node:events'
 import { byteArray, nativeBuffer, readPacket, writePacket, type ByteSource } from './osc.js'
+import * as sizeCount from './size-count.js'
 import * as slip from './slip.js'
 import type { OscBundle, OscMessage, OscOptions, OscPacket, OscPacketInput, ReadTimeTag } from './types.js'
 
 export const supportsSerial = false
 
-// The SLIP framing used by SLIPPort, for transports that need to frame data themselves.
-export { slip }
+// The stream framings used by StreamPort, for transports that need to frame data themselves.
+export { sizeCount, slip }
 
 /**
  * The events emitted by a Port. `TInfo` is the information about where a packet came from that the transport passes
@@ -97,7 +98,7 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 		this.on('data', (data, packetInfo) => this.handleData(data, packetInfo))
 	}
 
-	/** Decodes the data a transport has received; SLIPPort replaces this to reassemble SLIP framed packets */
+	/** Decodes the data a transport has received; StreamPort replaces this to reassemble framed packets */
 	protected handleData(data: ByteSource, packetInfo: TInfo | undefined): void {
 		this.decodeOSC(data, packetInfo)
 	}
@@ -155,41 +156,69 @@ export class Port<TInfo = unknown> extends EventEmitter<PortEvents<TInfo>> {
 	}
 }
 
-export interface SLIPPortOptions extends PortOptions {
-	/** Whether packets are SLIP framed, both those sent and those received. Defaults to true. */
-	useSLIP?: boolean
+/**
+ * How packets are delimited in a stream:
+ * - 'slip': SLIP (RFC 1055) with an END byte at each end of each packet, as OSC 1.1 requires.
+ * - 'size-count': each packet prefixed with its size as a big-endian int32, as OSC 1.0 recommended.
+ * - 'none': no framing; packets are sent as they are, and each chunk of data received is read as a whole packet. This
+ *   conforms to neither version of OSC, and only works while each packet arrives in a chunk of its own (small packets,
+ *   sent far enough apart), but some devices expect it.
+ */
+export type StreamFraming = 'slip' | 'size-count' | 'none'
+
+export interface StreamPortOptions extends PortOptions {
+	/** How packets are delimited in the stream, both those sent and those received. Defaults to 'slip'. */
+	framing?: StreamFraming
+}
+
+/** @deprecated Use StreamPortOptions */
+export type SLIPPortOptions = StreamPortOptions
+
+/** Something that reassembles packets from a stream, such as slip.Decoder or sizeCount.Decoder */
+export interface StreamDecoder {
+	decode(data: Uint8Array): void
 }
 
 /**
- * The base of stream-based transports, such as TCP. Outgoing packets are SLIP framed, and incoming packets are
- * reassembled from data that may arrive split across chunks.
+ * The base of stream-based transports, such as TCP. Outgoing packets are framed, and incoming packets are reassembled
+ * from data that may arrive split across chunks, as given by the framing option.
  */
-export class SLIPPort<TInfo = unknown> extends Port<TInfo> {
-	declare options: SLIPPortOptions
-	decoder: slip.Decoder
-	readonly #decodeHandler: (data: ByteSource, packetInfo: TInfo | undefined) => void
+export class StreamPort<TInfo = unknown> extends Port<TInfo> {
+	declare options: StreamPortOptions
+	/** Reassembles received packets; undefined for framing 'none' */
+	decoder: StreamDecoder | undefined
 	// The packet info of the data being fed to the decoder, for the messages it completes
-	#slipPacketInfo: TInfo | undefined
+	#framedPacketInfo: TInfo | undefined
 
-	constructor(options?: SLIPPortOptions) {
+	constructor(options?: StreamPortOptions) {
 		super(options)
 		const o = this.options
-		o.useSLIP = o.useSLIP === undefined ? true : o.useSLIP
+		o.framing = o.framing ?? 'slip'
 
-		this.decoder = new slip.Decoder({
-			onMessage: (msg) => this.decodeOSC(msg, this.#slipPacketInfo),
-			onError: (_msgBuffer, message) => {
-				this.emit('error', new Error(message))
-			},
-		})
+		const onMessage = (msg: Uint8Array) => this.decodeOSC(msg, this.#framedPacketInfo)
+		const onError = (message: string) => this.emit('error', new Error(message))
 
-		this.#decodeHandler = o.useSLIP
-			? (data, packetInfo) => this.decodeSLIPData(data, packetInfo)
-			: (data, packetInfo) => this.decodeOSC(data, packetInfo)
+		switch (o.framing) {
+			case 'slip':
+				this.decoder = new slip.Decoder({ onMessage, onError: (_msgBuffer, message) => onError(message) })
+				break
+			case 'size-count':
+				this.decoder = new sizeCount.Decoder({ onMessage, onError })
+				break
+			case 'none':
+				this.decoder = undefined
+				break
+			default:
+				throw new Error(`Unknown framing: ${String(o.framing)}. It must be 'slip', 'size-count' or 'none'`)
+		}
 	}
 
 	protected override handleData(data: ByteSource, packetInfo: TInfo | undefined): void {
-		this.#decodeHandler(data, packetInfo)
+		if (this.decoder) {
+			this.decodeFramedData(data, packetInfo)
+		} else {
+			this.decodeOSC(data, packetInfo)
+		}
 	}
 
 	override encodeOSC(packet: OscPacketInput): Uint8Array | undefined {
@@ -197,7 +226,17 @@ export class SLIPPort<TInfo = unknown> extends Port<TInfo> {
 
 		try {
 			const encoded = writePacket(packet, this.options)
-			framed = this.options.useSLIP ? slip.encode(encoded) : encoded
+			switch (this.options.framing) {
+				case 'slip':
+					framed = slip.encode(encoded)
+					break
+				case 'size-count':
+					framed = sizeCount.encode(encoded)
+					break
+				default:
+					framed = encoded
+					break
+			}
 		} catch (err) {
 			this.emit('error', err as Error)
 		}
@@ -206,17 +245,22 @@ export class SLIPPort<TInfo = unknown> extends Port<TInfo> {
 	}
 
 	/**
-	 * Feeds received data to the SLIP decoder. Messages it completes are given this data's packet info.
+	 * Feeds received data to the decoder. Packets it completes are given this data's packet info.
 	 */
-	decodeSLIPData(data: ByteSource, packetInfo?: TInfo): void {
-		this.#slipPacketInfo = packetInfo
+	decodeFramedData(data: ByteSource, packetInfo?: TInfo): void {
+		this.#framedPacketInfo = packetInfo
 		try {
-			this.decoder.decode(data as ArrayBuffer | ArrayLike<number>)
+			this.decoder?.decode(byteArray(data))
 		} finally {
-			this.#slipPacketInfo = undefined
+			this.#framedPacketInfo = undefined
 		}
 	}
 }
+
+/** @deprecated Use StreamPort, which this is another name for */
+export const SLIPPort = StreamPort
+/** @deprecated Use StreamPort, which this is another name for */
+export type SLIPPort<TInfo = unknown> = StreamPort<TInfo>
 
 /** Something that can be relayed from: an EventEmitter */
 export interface RelaySource {

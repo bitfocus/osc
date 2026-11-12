@@ -46,10 +46,10 @@ function fakeSocket(): FakeSocket {
 }
 
 describe('TCPSocketPort', () => {
-	test('is a SLIPPort, with defaults for its address and port', () => {
+	test('is a StreamPort, with defaults for its address and port', () => {
 		const port = new osc.TCPSocketPort({})
-		expect(port).toBeInstanceOf(osc.SLIPPort)
-		expect(port.options).toEqual({ useSLIP: true, address: '127.0.0.1', port: 57121 })
+		expect(port).toBeInstanceOf(osc.StreamPort)
+		expect(port.options).toEqual({ framing: 'slip', address: '127.0.0.1', port: 57121 })
 	})
 
 	test('takes localAddress and localPort as aliases for address and port', () => {
@@ -63,7 +63,7 @@ describe('TCPSocketPort', () => {
 	})
 
 	test('can be constructed without options, and copies the options it is given', () => {
-		expect(new osc.TCPSocketPort().options).toEqual({ useSLIP: true, address: '127.0.0.1', port: 57121 })
+		expect(new osc.TCPSocketPort().options).toEqual({ framing: 'slip', address: '127.0.0.1', port: 57121 })
 
 		const options = { port: 0 }
 		new osc.TCPSocketPort(options)
@@ -115,8 +115,8 @@ describe('TCPSocketPort', () => {
 		expect(addresses).toEqual(Array.from({ length: 50 }, (_, i) => `/msg/${i}`))
 	})
 
-	test('with useSLIP: false, receives unframed packets', async () => {
-		const { server, port } = await startServer({ useSLIP: false })
+	test("with framing 'none', receives unframed packets", async () => {
+		const { server, port } = await startServer({ framing: 'none' })
 		const connection = nextEvent(server, 'oscConnection')
 		const client = await connectClient(port)
 		const [serverPort] = await connection
@@ -126,10 +126,10 @@ describe('TCPSocketPort', () => {
 		expect((await received)[0]).toEqual(receivedMessage)
 	})
 
-	test('with useSLIP: false on both ends, sends and receives unframed packets', async () => {
-		const { server, port } = await startServer({ useSLIP: false })
+	test("with framing 'none' on both ends, sends and receives unframed packets", async () => {
+		const { server, port } = await startServer({ framing: 'none' })
 		const connection = nextEvent(server, 'oscConnection')
-		const client = await connectClient(port, { useSLIP: false })
+		const client = await connectClient(port, { framing: 'none' })
 		const [serverPort] = await connection
 
 		const raw = nextEvent(serverPort, 'raw')
@@ -137,6 +137,24 @@ describe('TCPSocketPort', () => {
 		client.send(message)
 		expect(toArray((await raw)[0])).toEqual(toArray(osc.writePacket(message)))
 		expect((await received)[0]).toEqual(receivedMessage)
+	})
+
+	test("with framing 'size-count' on both ends, sends and receives packets prefixed with their size", async () => {
+		const { server, port } = await startServer({ framing: 'size-count' })
+		const connection = nextEvent(server, 'oscConnection')
+		const client = await connectClient(port, { framing: 'size-count' })
+		const [serverPort] = await connection
+
+		const addresses: string[] = []
+		const done = new Promise<void>((resolve) => {
+			serverPort.on('message', (msg: OscMessage) => {
+				addresses.push(msg.address)
+				if (addresses.length === 20) resolve()
+			})
+		})
+		for (let i = 0; i < 20; i++) client.send({ address: `/msg/${i}`, args: [i] })
+		await done
+		expect(addresses).toEqual(Array.from({ length: 20 }, (_, i) => `/msg/${i}`))
 	})
 
 	test('open connects to the address and port given to open', async () => {

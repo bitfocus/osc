@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough, type Readable, type Writable } from 'node:stream'
 import { describe, expect, test, vi } from 'vitest'
-import type { OscMessageInput, PortOptions, SLIPPortOptions } from '../src/index.js'
+import type { OscMessageInput, PortOptions, StreamPortOptions } from '../src/index.js'
 import { nextEvent, osc, slip, toArray } from './helpers.js'
 
 // These transports are built only on the public API, as an application (or a separate package) would build one.
@@ -11,20 +11,20 @@ const message: OscMessageInput = { address: '/test/freq', args: [440] }
 /** message, as it is received: arguments are read with their types */
 const receivedMessage = { address: '/test/freq', args: [{ type: 'f', value: 440 }] }
 
-interface StreamPortOptions extends SLIPPortOptions {
+interface PipePortOptions extends StreamPortOptions {
 	readable: Readable
 	writable: Writable
 }
 
 /**
- * A stream transport, in the style of the removed serial port transport: osc.SLIPPort does the SLIP framing, so the
+ * A stream transport, in the style of the removed serial port transport: osc.StreamPort does the framing, so the
  * transport only has to move bytes.
  */
-class StreamPort extends osc.SLIPPort {
+class PipePort extends osc.StreamPort {
 	readonly readable: Readable
 	readonly writable: Writable
 
-	constructor(options: StreamPortOptions) {
+	constructor(options: PipePortOptions) {
 		super(options)
 		this.readable = options.readable
 		this.writable = options.writable
@@ -92,11 +92,11 @@ function socketPair(): [MessageSocket, MessageSocket] {
 }
 
 describe('A custom stream (SLIP framed) transport', () => {
-	function streamPortPair(options: SLIPPortOptions = {}): [StreamPort, StreamPort, PassThrough] {
+	function streamPortPair(options: StreamPortOptions = {}): [PipePort, PipePort, PassThrough] {
 		const aToB = new PassThrough()
 		const bToA = new PassThrough()
-		const a = new StreamPort({ ...options, readable: bToA, writable: aToB })
-		const b = new StreamPort({ ...options, readable: aToB, writable: bToA })
+		const a = new PipePort({ ...options, readable: bToA, writable: aToB })
+		const b = new PipePort({ ...options, readable: aToB, writable: bToA })
 		a.open()
 		b.open()
 		return [a, b, aToB]
@@ -180,7 +180,7 @@ describe('Framing data without a Port', () => {
 		expect(osc.readPacket(onMessage.mock.calls[0][0], {})).toEqual(receivedMessage)
 	})
 
-	test('osc.slip is the codec used by SLIPPort', () => {
+	test('osc.slip is the codec used by StreamPort', () => {
 		expect(osc.slip).toBe(slip)
 	})
 })

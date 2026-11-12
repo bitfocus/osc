@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { describe, expect, test, vi } from 'vitest'
-import type { OscBundleInput, OscMessageInput, PortOptions, SLIPPortOptions } from '../src/index.js'
-import { nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
+import type { OscBundleInput, OscMessageInput, PortOptions, StreamPortOptions } from '../src/index.js'
+import { int32, nextEvent, osc, slip, toArray, untypedOsc } from './helpers.js'
 
 const message: OscMessageInput = { address: '/test/freq', args: [440] }
 /** message, as it is received: arguments are read with their types */
@@ -13,8 +13,8 @@ function mockPort(options?: PortOptions) {
 	return Object.assign(new osc.Port(options), { sendRaw: vi.fn() })
 }
 
-function mockSLIPPort(options?: SLIPPortOptions) {
-	return Object.assign(new osc.SLIPPort(options), { sendRaw: vi.fn() })
+function mockStreamPort(options?: StreamPortOptions) {
+	return Object.assign(new osc.StreamPort(options), { sendRaw: vi.fn() })
 }
 
 describe('Port', () => {
@@ -181,27 +181,27 @@ describe('Packet events', () => {
 	})
 })
 
-describe('SLIPPort', () => {
+describe('StreamPort', () => {
 	test('uses SLIP framing by default', () => {
-		const port = new osc.SLIPPort()
+		const port = new osc.StreamPort()
 		expect(port).toBeInstanceOf(osc.Port)
-		expect(port.options).toEqual({ useSLIP: true })
+		expect(port.options).toEqual({ framing: 'slip' })
 	})
 
 	test('encodeOSC frames the packet with SLIP', () => {
-		const port = mockSLIPPort()
+		const port = mockStreamPort()
 		const encoded = port.encodeOSC(message)
 		expect(toArray(encoded)).toEqual(toArray(slip.encode(encodedMessage)))
 	})
 
 	test('send passes the SLIP-framed packet to sendRaw', () => {
-		const port = mockSLIPPort()
+		const port = mockStreamPort()
 		port.send(message)
 		expect(toArray(port.sendRaw.mock.calls[0][0])).toEqual(toArray(slip.encode(encodedMessage)))
 	})
 
 	test('encodeOSC emits an error, and returns undefined, for an invalid packet', () => {
-		const port = mockSLIPPort()
+		const port = mockStreamPort()
 		const onError = vi.fn()
 		port.on('error', onError)
 		expect(port.encodeOSC({ foo: 1 } as any)).toBeUndefined()
@@ -209,7 +209,7 @@ describe('SLIPPort', () => {
 	})
 
 	test('decodes SLIP-framed messages split across several chunks', () => {
-		const port = new osc.SLIPPort()
+		const port = new osc.StreamPort()
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 
@@ -223,17 +223,17 @@ describe('SLIPPort', () => {
 	})
 
 	test('messages decoded from SLIP data have the packet info of the data that completed them', () => {
-		const port = new osc.SLIPPort()
+		const port = new osc.StreamPort()
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		const framed = toArray(slip.encode(encodedMessage))
-		port.decodeSLIPData(new Uint8Array(framed.slice(0, 5)), 'first')
-		port.decodeSLIPData(new Uint8Array(framed.slice(5)), 'second')
+		port.decodeFramedData(new Uint8Array(framed.slice(0, 5)), 'first')
+		port.decodeFramedData(new Uint8Array(framed.slice(5)), 'second')
 		expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, 'second')
 	})
 
-	test('with useSLIP: false, decodes unframed data', () => {
-		const port = new osc.SLIPPort({ useSLIP: false })
+	test("with framing 'none', decodes each chunk as a packet", () => {
+		const port = new osc.StreamPort({ framing: 'none' })
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		port.emit('data', new Uint8Array(encodedMessage), 'info')
@@ -242,9 +242,10 @@ describe('SLIPPort', () => {
 	})
 
 	test('a SLIP decoder error is emitted as an Error', () => {
-		const port = new osc.SLIPPort()
-		port.decoder.maxMessageSize = 4
-		port.decoder.msgBuffer = new Uint8Array(2)
+		const port = new osc.StreamPort()
+		const decoder = port.decoder as InstanceType<typeof slip.Decoder>
+		decoder.maxMessageSize = 4
+		decoder.msgBuffer = new Uint8Array(2)
 		const onError = vi.fn()
 		port.on('error', onError)
 		port.emit('data', new Uint8Array([slip.END, 1, 2, 3]), undefined)
@@ -253,10 +254,55 @@ describe('SLIPPort', () => {
 		expect(onError.mock.calls[0][0].message).toContain('The message is too large')
 	})
 
-	test('with useSLIP: false, sends unframed packets', () => {
-		const port = mockSLIPPort({ useSLIP: false })
+	test("with framing 'none', sends unframed packets", () => {
+		const port = mockStreamPort({ framing: 'none' })
 		port.send(message)
 		expect(toArray(port.sendRaw.mock.calls[0][0])).toEqual(encodedMessage)
+	})
+
+	describe("framing 'size-count'", () => {
+		const framed = [...int32(encodedMessage.length), ...encodedMessage]
+
+		test('sends packets prefixed with their size', () => {
+			const port = mockStreamPort({ framing: 'size-count' })
+			port.send(message)
+			expect(toArray(port.sendRaw.mock.calls[0][0])).toEqual(framed)
+		})
+
+		test('decodes packets split across, and sharing, chunks, with the packet info of the data that completed them', () => {
+			const port = new osc.StreamPort({ framing: 'size-count' })
+			const onMessage = vi.fn()
+			port.on('message', onMessage)
+
+			port.emit('data', new Uint8Array(framed.slice(0, 2)), 'first')
+			port.emit('data', new Uint8Array(framed.slice(2, 10)), 'second')
+			expect(onMessage).not.toHaveBeenCalled()
+			port.emit('data', new Uint8Array([...framed.slice(10), ...framed]), 'third')
+
+			expect(onMessage.mock.calls).toEqual([
+				[receivedMessage, undefined, 'third'],
+				[receivedMessage, undefined, 'third'],
+			])
+		})
+
+		test('emits an error for an invalid size', () => {
+			const port = new osc.StreamPort({ framing: 'size-count' })
+			const onError = vi.fn()
+			port.on('error', onError)
+			port.emit('data', new Uint8Array(int32(-1)), undefined)
+			expect(onError.mock.calls[0][0]).toBeInstanceOf(Error)
+			expect(onError.mock.calls[0][0].message).toContain("A packet's size (-1 bytes) is invalid")
+		})
+	})
+
+	test('throws for an unknown framing', () => {
+		expect(() => new osc.StreamPort({ framing: 'nope' as any })).toThrow(
+			"Unknown framing: nope. It must be 'slip', 'size-count' or 'none'"
+		)
+	})
+
+	test('SLIPPort is another name for StreamPort, for code ported from osc.js', () => {
+		expect(osc.SLIPPort).toBe(osc.StreamPort)
 	})
 })
 
