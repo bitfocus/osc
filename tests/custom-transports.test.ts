@@ -141,7 +141,7 @@ describe('A custom stream (SLIP framed) transport', () => {
 		const onError = vi.fn()
 		a.on('error', onError)
 		a.send(message)
-		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed port")
+		expect(onError.mock.calls[0][0].message).toContain("Can't send packets on a closed port")
 	})
 
 	test('emits close', async () => {

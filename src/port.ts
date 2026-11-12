@@ -25,9 +25,9 @@ export interface OscPortEvents<TInfo = unknown> {
 	/** The underlying connection has closed. TCP passes whether this was due to an error. */
 	close: [hadError?: boolean]
 	/**
-	 * Something went wrong. This is usually an Error; sending on a closed port reports a string.
+	 * Something went wrong.
 	 */
-	error: [error: Error | string]
+	error: [error: Error]
 	/** Raw data received by the transport, to be decoded. Transports emit this. */
 	data: [data: ByteSource, info: TInfo | undefined]
 	/** The bytes of each packet received */
@@ -74,7 +74,7 @@ export function fireBundleEvents<TInfo>(
 export function fireClosedPortSendError(port: OscPort<any>, msg?: string): void {
 	msg = msg || "Can't send packets on a closed port. Please open (or reopen) it by calling open()."
 
-	port.emit('error', msg)
+	port.emit('error', new Error(msg))
 }
 
 /**

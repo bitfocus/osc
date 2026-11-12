@@ -70,7 +70,7 @@ And these events:
 | `osc` | `packet`, `info` | A packet (message or bundle) was received |
 | `raw` | `data`, `info` | The bytes of each packet received |
 | `close` | | The port closed |
-| `error` | `error` | Something went wrong, such as receiving a malformed packet, or sending an invalid one (which isn't sent). Usually an `Error`; sending on a closed port reports a string |
+| `error` | `error` | Something went wrong, such as receiving a malformed packet, or sending an invalid one (which isn't sent). Always an `Error` |
 
 Both take an `options` object. All the options are optional, and the port keeps its own copy.
 
@@ -292,6 +292,7 @@ Bugs inherited from `osc` are fixed. Code that relied on them may notice:
 
 * Values that don't fit their type are clamped rather than wrapping, eg an int32 of 2^31 is sent as 2^31 - 1, not -2^31.
 * Sending an invalid packet emits an `error` event and sends nothing, where it emitted the error and then threw.
+* The `error` event always carries an `Error`; sending on a closed port emitted a string.
 * Writing a string containing a null character throws (or, sending it, emits an `error`), rather than sending a malformed packet.
 * A port's options are copied, rather than having the defaults written into the object given; and the options object is optional.
 * A closed `OscUdpPort` can be opened again.

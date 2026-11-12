@@ -182,7 +182,7 @@ describe('OscUdpPort', () => {
 		const onError = vi.fn()
 		port.on('error', onError)
 		port.send(message)
-		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed port")
+		expect(onError.mock.calls[0][0].message).toContain("Can't send packets on a closed port")
 	})
 
 	test('close does nothing without a socket', () => {
@@ -198,7 +198,7 @@ describe('OscUdpPort', () => {
 		const onError = vi.fn()
 		port.on('error', onError)
 		port.send(message)
-		expect(onError.mock.calls[0][0]).toContain("Can't send packets on a closed port")
+		expect(onError.mock.calls[0][0].message).toContain("Can't send packets on a closed port")
 		await closed
 
 		const ready = nextEvent(port, 'ready')
