@@ -2,7 +2,7 @@
  * osc.js: An Open Sound Control library for Node.js
  *
  * Copyright 2014-2016, Colin Clark
- * Licensed under the MIT and GPL 3 licenses.
+ * Licensed under either the MIT or the GPL-2.0 license.
  */
 
 /** The OSC type tags that osc.js can read and write */

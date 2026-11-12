@@ -7,7 +7,7 @@
  * reduced to the parts osc.js uses.
  *
  * Copyright 2014, Colin Clark
- * Licensed under the MIT and GPL 3 licenses.
+ * Licensed under either the MIT or the GPL-2.0 license.
  */
 
 export const END = 192

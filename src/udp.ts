@@ -4,7 +4,7 @@
  * The Node.js UDP transport.
  *
  * Copyright 2014-2016, Colin Clark
- * Licensed under the MIT and GPL 3 licenses.
+ * Licensed under either the MIT or the GPL-2.0 license.
  */
 
 import dgram from 'node:dgram'

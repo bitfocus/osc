@@ -507,13 +507,16 @@ Here are a few examples showing how OSC packets are mapped to plain JavaScript o
 }</pre></code></td>
     </tr>
     <tr>
-        <td>"/aTimeTag" ",t" 3608146800 2147483648</td>
+        <td>"/scheduleAt" ",t" 3608146800 2147483648</td>
         <td><pre><code>{
   address: "/scheduleAt",
   args: [
     {
-      raw: [3608146800, 2147483648],
-      jsTime: 1399158000500
+      type: "t",
+      value: {
+        raw: [3608146800, 2147483648],
+        native: 1399158000500
+      }
     }
   ]
 }</code></pre>
@@ -562,7 +565,7 @@ Here are a few examples showing how OSC packets are mapped to plain JavaScript o
 License
 -------
 
-osc.js is maintained by Colin Clark and distributed under the MIT and GPL 3 licenses.
+osc.js was written by Colin Clark, and this fork is maintained by Bitfocus. It is distributed under either the MIT or the GPL-2.0 license, at your choice (see `MIT-LICENSE.txt` and `GPL-LICENSE.txt`).
 
 Contributing to osc.js
 ----------------------
