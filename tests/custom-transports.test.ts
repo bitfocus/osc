@@ -7,7 +7,6 @@ import { createOscTimeTag, type OscMessageInput } from '../src/index.js'
 import {
 	fireClosedPortSendError,
 	OscPort,
-	OscRelay,
 	OscStreamPort,
 	type OscPortOptions,
 	type OscStreamPortOptions,
@@ -166,20 +165,6 @@ describe('A custom message (unframed) transport', () => {
 		const atA = nextEvent(a, 'message')
 		b.send(message)
 		expect((await atA)[0]).toEqual(receivedMessage)
-	})
-
-	test('can be relayed to and from another transport', async () => {
-		const [socketA, socketB] = socketPair()
-		const [socketC, socketD] = socketPair()
-		const a = new MessagePort({ socket: socketA })
-		const b = new MessagePort({ socket: socketB })
-		const c = new MessagePort({ socket: socketC })
-		const d = new MessagePort({ socket: socketD })
-		new OscRelay(b, c)
-
-		const atD = nextEvent(d, 'message')
-		a.send(message)
-		expect((await atD)[0]).toEqual(receivedMessage)
 	})
 })
 

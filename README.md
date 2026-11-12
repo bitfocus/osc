@@ -46,7 +46,7 @@ The package is split up by what you need, so that you can import things by name,
 | --- | --- | --- |
 | `@companion-app/osc` | Sending and receiving over UDP and TCP | `OscUdpPort`, `OscTcpPort`, `createOscTimeTag`, and the packet, argument and option types |
 | `@companion-app/osc/codec` | Encoding and decoding packets, without a port | `readOscPacket`, `writeOscPacket`, `readOscMessage`, `writeOscMessage`, `writeOscBundle` |
-| `@companion-app/osc/transport` | [Writing your own transport](#writing-your-own-transport) | `OscPort`, `OscStreamPort`, `OscRelay`, `fireClosedPortSendError` |
+| `@companion-app/osc/transport` | [Writing your own transport](#writing-your-own-transport) | `OscPort`, `OscStreamPort`, `fireClosedPortSendError` |
 | `@companion-app/osc/framing` | Framing data for a stream yourself | `slip`, `sizeCount` |
 
 Ports
@@ -214,8 +214,6 @@ class OscSerialPort extends OscStreamPort {
 }
 ```
 
-`OscRelay` connects two ports, sending everything received by each out of the other.
-
 For transports that frame data themselves, `@companion-app/osc/framing` has the codecs: `slip` for SLIP and `sizeCount` for size-count, each with `encode(bytes)` and a `Decoder` that reassembles packets from chunks of data.
 
 See [`tests/custom-transports.test.ts`](tests/custom-transports.test.ts) for working stream and message transports built this way.
@@ -243,7 +241,8 @@ This package was forked from version 2.4.5 of the [`osc`](https://www.npmjs.com/
 | `osc.readPacket`, `osc.writePacket` | `readOscPacket`, `writeOscPacket` from `@companion-app/osc/codec` |
 | `osc.readMessage`, `osc.writeMessage`, `osc.writeBundle` | `readOscMessage`, `writeOscMessage`, `writeOscBundle` from `@companion-app/osc/codec` |
 | `osc.readBundle` | `readOscPacket` from `@companion-app/osc/codec`; `readBundle` was the same function, and read messages too |
-| `osc.Port`, `osc.SLIPPort`, `osc.Relay` | `OscPort`, `OscStreamPort`, `OscRelay` from `@companion-app/osc/transport` |
+| `osc.Port`, `osc.SLIPPort` | `OscPort`, `OscStreamPort` from `@companion-app/osc/transport` |
+| `osc.Relay` | Removed; listen for the `osc` (or `raw`) events of one port and `send()` (or `sendRaw()`) each on another |
 | `osc.fireClosedPortSendError` | `fireClosedPortSendError` from `@companion-app/osc/transport` |
 | `osc.WebSocketPort`, `osc.SerialPort` | Removed; see [Writing your own transport](#writing-your-own-transport) |
 | `osc.readInt32`, `osc.writeString` and the other low-level functions, `osc.Long`, `osc.supportsSerial`, `osc.isNode` and the other flags | Removed |
@@ -296,7 +295,6 @@ Bugs inherited from `osc` are fixed. Code that relied on them may notice:
 * Writing a string containing a null character throws (or, sending it, emits an `error`), rather than sending a malformed packet.
 * A port's options are copied, rather than having the defaults written into the object given; and the options object is optional.
 * A closed `OscUdpPort` can be opened again.
-* `OscRelay`'s `raw` and `transform` options work; `raw` was always ignored, and the result of `transform` was discarded.
 * Reading is more forgiving of, and more correct about, packets from other implementations: messages without a type tag string, nested arrays, bundle element sizes, and blobs in packets that don't start at the beginning of their buffer.
 * Time tags are no longer sometimes a second early, and `osc.timeTag(secs, 0)` meant now, where `createOscTimeTag(secs, 0)` means the epoch.
 
