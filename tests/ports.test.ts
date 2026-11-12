@@ -224,8 +224,8 @@ describe('OscStreamPort', () => {
 		const onMessage = vi.fn()
 		port.on('message', onMessage)
 		const framed = toArray(slip.encode(encodedMessage))
-		port.decodeFramedData(new Uint8Array(framed.slice(0, 5)), 'first')
-		port.decodeFramedData(new Uint8Array(framed.slice(5)), 'second')
+		port.emit('data', new Uint8Array(framed.slice(0, 5)), 'first')
+		port.emit('data', new Uint8Array(framed.slice(5)), 'second')
 		expect(onMessage).toHaveBeenCalledWith(receivedMessage, undefined, 'second')
 	})
 
@@ -240,7 +240,7 @@ describe('OscStreamPort', () => {
 
 	test('a SLIP decoder error is emitted as an Error', () => {
 		const port = new osc.OscStreamPort()
-		const decoder = port.decoder as InstanceType<typeof slip.Decoder>
+		const decoder = (port as any).decoder as InstanceType<typeof slip.Decoder>
 		decoder.maxMessageSize = 4
 		decoder.msgBuffer = new Uint8Array(2)
 		const onError = vi.fn()

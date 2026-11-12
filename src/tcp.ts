@@ -27,8 +27,13 @@ export interface OscTcpPortOptions extends OscStreamPortOptions {
  * Sends and receives OSC packets over a TCP connection, framed as given by the framing option (SLIP by default).
  */
 export class OscTcpPort extends OscStreamPort<undefined> {
-	declare options: OscTcpPortOptions
-	socket: net.Socket | undefined
+	declare readonly options: OscTcpPortOptions
+	#socket: net.Socket | undefined
+
+	/** The port's socket, once it has one */
+	get socket(): net.Socket | undefined {
+		return this.#socket
+	}
 
 	constructor(options?: OscTcpPortOptions) {
 		super(options)
@@ -42,10 +47,10 @@ export class OscTcpPort extends OscStreamPort<undefined> {
 		o.port = o.port !== undefined ? o.port : o.localPort !== undefined ? o.localPort : 57121
 
 		this.on('open', () => this.listen())
-		this.socket = this.options.socket
+		this.#socket = this.options.socket
 
-		if (this.socket) {
-			this.emit('open', this.socket)
+		if (this.#socket) {
+			this.emit('open', this.#socket)
 		}
 	}
 
@@ -55,20 +60,20 @@ export class OscTcpPort extends OscStreamPort<undefined> {
 		address = address || o.address
 		port = port !== undefined ? port : o.port
 
-		if (!this.socket) {
-			this.socket = net.connect({
+		if (!this.#socket) {
+			this.#socket = net.connect({
 				port: port as number,
 				host: address,
 			})
 		} else {
-			this.socket.connect(port as number, address as string)
+			this.#socket.connect(port as number, address as string)
 		}
 
-		this.emit('open', this.socket)
+		this.emit('open', this.#socket)
 	}
 
-	listen(): void {
-		const socket = this.socket as net.Socket
+	private listen(): void {
+		const socket = this.#socket as net.Socket
 
 		socket.on('data', (msg) => {
 			// Data is only a string if an encoding has been set on the socket, which would break decoding the framing anyway
@@ -89,22 +94,22 @@ export class OscTcpPort extends OscStreamPort<undefined> {
 	}
 
 	override sendRaw(encoded: Uint8Array): void {
-		if (!this.socket) {
+		if (!this.#socket) {
 			return
 		}
 
 		const buf = Buffer.from(encoded)
 
 		try {
-			this.socket.write(buf)
+			this.#socket.write(buf)
 		} catch (err) {
 			this.emit('error', err as Error)
 		}
 	}
 
 	close(): void {
-		if (this.socket) {
-			this.socket.end()
+		if (this.#socket) {
+			this.#socket.end()
 		}
 	}
 }

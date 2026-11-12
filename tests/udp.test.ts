@@ -173,7 +173,7 @@ describe('OscUdpPort', () => {
 		const port = new osc.OscUdpPort({})
 		const onReady = vi.fn()
 		port.on('ready', onReady)
-		port.listen()
+		;(port as any).listen()
 		expect(onReady).not.toHaveBeenCalled()
 	})
 
@@ -277,44 +277,54 @@ describe('OscUdpPort', () => {
 		})
 	})
 
-	describe('setupMulticast', () => {
-		test('does nothing without multicast options', () => {
-			const port = { options: {}, socket: fakeSocket() }
-			osc.OscUdpPort.setupMulticast(port)
-			expect(port.socket.setMulticastTTL).not.toHaveBeenCalled()
-			expect(port.socket.addMembership).not.toHaveBeenCalled()
-		})
-
-		test('sets the TTL, including 0', () => {
-			const port = { options: { multicastTTL: 0 }, socket: fakeSocket() }
-			osc.OscUdpPort.setupMulticast(port)
-			expect(port.socket.setMulticastTTL).toHaveBeenCalledWith(0)
-		})
-
-		test('joins a single group given as a string', () => {
-			const port = { options: { multicastMembership: '239.255.255.250' }, socket: fakeSocket() }
-			osc.OscUdpPort.setupMulticast(port)
-			expect(port.socket.addMembership).toHaveBeenCalledWith('239.255.255.250')
-			expect(port.options.multicastMembership).toEqual(['239.255.255.250'])
-		})
-
-		test('joins several groups, optionally on a given interface', () => {
-			const port = {
-				options: { multicastMembership: ['239.0.0.1', { address: '239.0.0.2', interface: '10.0.0.5' }] },
-				socket: fakeSocket(),
-			}
-			osc.OscUdpPort.setupMulticast(port)
-			expect(port.socket.addMembership.mock.calls).toEqual([['239.0.0.1'], ['239.0.0.2', '10.0.0.5']])
-		})
-
-		test('is applied when the port is bound', async () => {
-			const spy = vi.spyOn(osc.OscUdpPort, 'setupMulticast')
+	describe('multicast', () => {
+		/** Opens a port with the options, on a stand-in socket, returning the socket */
+		function openOnFakeSocket(options: OscUdpPortOptions): FakeSocket {
+			const socket = fakeSocket()
+			const spy = vi.spyOn(dgramModule, 'createSocket').mockReturnValue(socket)
 			try {
-				const port = await openUDPPort({ multicastTTL: 2 })
-				expect(spy).toHaveBeenCalledWith(port)
+				new osc.OscUdpPort({ localPort: 0, ...options }).open()
 			} finally {
 				spy.mockRestore()
 			}
+			return socket
+		}
+
+		test('does nothing without multicast options', () => {
+			const socket = openOnFakeSocket({})
+			expect(socket.setMulticastTTL).not.toHaveBeenCalled()
+			expect(socket.addMembership).not.toHaveBeenCalled()
+		})
+
+		test('sets the TTL, including 0', () => {
+			expect(openOnFakeSocket({ multicastTTL: 0 }).setMulticastTTL).toHaveBeenCalledWith(0)
+		})
+
+		test('joins a single group given as a string', () => {
+			const options = { multicastMembership: '239.255.255.250' }
+			expect(openOnFakeSocket(options).addMembership).toHaveBeenCalledWith('239.255.255.250')
+			expect(options.multicastMembership).toBe('239.255.255.250')
+		})
+
+		test('joins several groups, optionally on a given interface', () => {
+			const socket = openOnFakeSocket({
+				multicastMembership: ['239.0.0.1', { address: '239.0.0.2', interface: '10.0.0.5' }],
+			})
+			expect(socket.addMembership.mock.calls).toEqual([['239.0.0.1'], ['239.0.0.2', '10.0.0.5']])
+		})
+
+		test('is set up once the socket is bound', () => {
+			const socket = fakeSocket()
+			socket.bind.mockImplementation(() => {})
+			const spy = vi.spyOn(dgramModule, 'createSocket').mockReturnValue(socket)
+			try {
+				new osc.OscUdpPort({ localPort: 0, multicastTTL: 2 }).open()
+			} finally {
+				spy.mockRestore()
+			}
+			expect(socket.setMulticastTTL).not.toHaveBeenCalled()
+			socket.bind.mock.calls[0][2]()
+			expect(socket.setMulticastTTL).toHaveBeenCalledWith(2)
 		})
 	})
 
@@ -327,7 +337,7 @@ describe('OscUdpPort', () => {
 			{ name: 'an explicit type', options: { localAddress: '0.0.0.0', type: 'udp6' }, type: 'udp6' },
 			{ name: 'an explicit type overriding the address', options: { localAddress: '::', type: 'udp4' }, type: 'udp4' },
 		] as const)('the socket type for $name is $type', ({ options, type }) => {
-			expect(new osc.OscUdpPort({ ...options }).socketType()).toBe(type)
+			expect((new osc.OscUdpPort({ ...options }) as any).socketType()).toBe(type)
 		})
 
 		test('open creates a socket of that type, passing ipv6Only through', () => {

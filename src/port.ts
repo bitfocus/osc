@@ -84,7 +84,7 @@ export function fireClosedPortSendError(port: OscPort<any>, msg?: string): void 
  * appropriate). Encoding, decoding, and the osc, message, bundle and raw events are handled here.
  */
 export class OscPort<TInfo = unknown> extends EventEmitter<OscPortEvents<TInfo>> {
-	options: OscPortOptions
+	readonly options: OscPortOptions
 
 	constructor(options?: OscPortOptions) {
 		super()
@@ -176,9 +176,9 @@ export interface OscStreamDecoder {
  * from data that may arrive split across chunks, as given by the framing option.
  */
 export class OscStreamPort<TInfo = unknown> extends OscPort<TInfo> {
-	declare options: OscStreamPortOptions
+	declare readonly options: OscStreamPortOptions
 	/** Reassembles received packets; undefined for framing 'none' */
-	decoder: OscStreamDecoder | undefined
+	private decoder: OscStreamDecoder | undefined
 	// The packet info of the data being fed to the decoder, for the messages it completes
 	#framedPacketInfo: TInfo | undefined
 
@@ -239,7 +239,7 @@ export class OscStreamPort<TInfo = unknown> extends OscPort<TInfo> {
 	/**
 	 * Feeds received data to the decoder. Packets it completes are given this data's packet info.
 	 */
-	decodeFramedData(data: ByteSource, packetInfo?: TInfo): void {
+	private decodeFramedData(data: ByteSource, packetInfo?: TInfo): void {
 		this.#framedPacketInfo = packetInfo
 		try {
 			this.decoder?.decode(byteArray(data))

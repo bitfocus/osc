@@ -49,8 +49,13 @@ export interface OscUdpPortOptions extends OscPortOptions {
  * After closing, the port can be opened again.
  */
 export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
-	declare options: OscUdpPortOptions
-	socket: dgram.Socket | undefined
+	declare readonly options: OscUdpPortOptions
+	#socket: dgram.Socket | undefined
+
+	/** The port's socket, while it is open */
+	get socket(): dgram.Socket | undefined {
+		return this.#socket
+	}
 
 	constructor(options?: OscUdpPortOptions) {
 		super(options)
@@ -63,18 +68,18 @@ export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
 
 		this.on('open', () => this.listen())
 
-		this.socket = this.options.socket
-		if (this.socket) {
-			this.emit('open', this.socket)
+		this.#socket = this.options.socket
+		if (this.#socket) {
+			this.emit('open', this.#socket)
 		}
 	}
 
 	override open(): void {
-		if (this.socket) {
+		if (this.#socket) {
 			return
 		}
 
-		const socket = (this.socket = dgram.createSocket({
+		const socket = (this.#socket = dgram.createSocket({
 			type: this.socketType(),
 			ipv6Only: this.options.ipv6Only,
 		}))
@@ -84,7 +89,7 @@ export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
 		})
 
 		socket.bind(this.options.localPort, this.options.localAddress, () => {
-			OscUdpPort.setupMulticast(this)
+			this.setupMulticast(socket)
 
 			if (this.options.broadcast) {
 				socket.setBroadcast(this.options.broadcast)
@@ -95,13 +100,13 @@ export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
 	}
 
 	/** The type of socket the options describe; for a socket given in the options, the type option says what it is */
-	socketType(): dgram.SocketType {
+	private socketType(): dgram.SocketType {
 		if (this.options.type) return this.options.type
 		return net.isIPv6(this.options.localAddress as string) ? 'udp6' : 'udp4'
 	}
 
-	listen(): void {
-		const socket = this.socket
+	private listen(): void {
+		const socket = this.#socket
 		if (!socket) {
 			return
 		}
@@ -112,7 +117,7 @@ export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
 
 		socket.on('close', () => {
 			// The socket may have been closed by something other than close()
-			if (this.socket === socket) this.socket = undefined
+			if (this.#socket === socket) this.#socket = undefined
 			this.emit('close')
 		})
 
@@ -124,7 +129,7 @@ export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
 	 * an IPv4 address is sent to as its IPv4-mapped IPv6 address.
 	 */
 	override sendRaw(encoded: Uint8Array | ArrayLike<number>, address?: string, port?: number): void {
-		if (!this.socket) {
+		if (!this.#socket) {
 			fireClosedPortSendError(this)
 			return
 		}
@@ -141,7 +146,7 @@ export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
 			address = '::ffff:' + address
 		}
 
-		this.socket.send(encoded as Uint8Array, 0, length, port, address, (err) => {
+		this.#socket.send(encoded as Uint8Array, 0, length, port, address, (err) => {
 			if (err) {
 				this.emit('error', err)
 			}
@@ -149,33 +154,32 @@ export class OscUdpPort extends OscPort<dgram.RemoteInfo> {
 	}
 
 	close(): void {
-		const socket = this.socket
+		const socket = this.#socket
 		if (socket) {
 			// Forget the socket straight away, so that sending fails as for a closed port, and open() makes a new one
-			this.socket = undefined
+			this.#socket = undefined
 			socket.close()
 		}
 	}
 
-	static setupMulticast(that: { options: OscUdpPortOptions; socket: dgram.Socket | undefined }): void {
-		const socket = that.socket as dgram.Socket
-
-		if (that.options.multicastTTL !== undefined) {
-			socket.setMulticastTTL(that.options.multicastTTL)
+	private setupMulticast(socket: dgram.Socket): void {
+		if (this.options.multicastTTL !== undefined) {
+			socket.setMulticastTTL(this.options.multicastTTL)
 		}
 
-		if (that.options.multicastMembership) {
-			if (typeof that.options.multicastMembership === 'string') {
-				that.options.multicastMembership = [that.options.multicastMembership]
-			}
+		if (this.options.multicastMembership) {
+			const memberships =
+				typeof this.options.multicastMembership === 'string'
+					? [this.options.multicastMembership]
+					: this.options.multicastMembership
 
-			that.options.multicastMembership.forEach((addr) => {
+			for (const addr of memberships) {
 				if (typeof addr === 'string') {
 					socket.addMembership(addr)
 				} else {
 					socket.addMembership(addr.address, addr.interface)
 				}
-			})
+			}
 		}
 	}
 }
